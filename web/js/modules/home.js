@@ -11,6 +11,21 @@ export function notReady(view) {
 
 function walletIntro(view) {
   const net = chain.cfg.network;
+  if (!wallet.installed && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    // 휴대폰의 일반 브라우저에는 지갑이 없다 → MetaMask 앱의 내장 브라우저로 이 사이트를 열게 한다
+    const deep = `https://metamask.app.link/dapp/${location.host}${location.pathname}`;
+    render(view, html`
+      <div class="hero"><h1>휴대폰에서는 MetaMask 앱 안에서 여세요</h1>
+        <p>이 실험실의 돈은 <b>${net.name} 블록체인</b>에 기록되고, 그 돈을 움직이는 열쇠(개인키)는 <b>MetaMask 앱</b>이 보관합니다.
+        일반 인터넷 앱(사파리·크롬·삼성인터넷)에는 지갑이 없어서 연결할 수 없어요.</p></div>
+      <div class="card"><ol class="steps">
+        <li><div><b>MetaMask 앱 설치</b><br>앱스토어·플레이스토어에서 <b>MetaMask</b> 검색 → 설치 → <b>새 지갑 만들기</b>. 비밀 복구 구문 12단어는 종이에 적어 두세요.</div></li>
+        <li><div><b>아래 버튼으로 이 사이트를 MetaMask 앱에서 열기</b><br>
+          <a class="btn btn-primary" href="${deep}" style="margin-top:6px">🦊 MetaMask 앱에서 열기</a>
+          <div class="small muted" style="margin-top:6px">버튼이 안 되면: MetaMask 앱 아래쪽 <b>브라우저</b> 탭 → 주소창에 <code>${location.host}${location.pathname}</code> 입력</div></div></li>
+      </ol></div>`);
+    return true;
+  }
   if (!wallet.installed) {
     render(view, html`
       <div class="hero"><h1>MetaMask 지갑이 필요합니다</h1>

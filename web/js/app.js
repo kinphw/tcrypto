@@ -18,6 +18,7 @@ function drawNav() {
   render($('#nav'), html`
     <div class="brand"><span class="logo">₩</span><div>${chain.cfg?.appName || 'TCrypto 실험실'}<small>${chain.cfg ? chain.cfg.network.name + ' 위의 학습용 경제' : ''}</small></div></div>
     ${MODULES.filter((m) => m.nav !== false).map((m) => html`<a href="#/${m.id}" data-id="${m.id}"><span class="ico">${m.icon}</span>${m.title}</a>`)}
+    <a href="guide.html" target="_blank" rel="noopener"><span class="ico">?</span>참여 안내서</a>
     <div class="nav-foot small muted">이 사이트는 화면일 뿐이고, 모든 기록은 ${chain.cfg?.network.name || '블록체인'}에 있습니다.
       MetaMask 와 이더스캔에서도 똑같이 확인할 수 있어요.</div>
   `);

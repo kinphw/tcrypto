@@ -1,0 +1,4 @@
+node_modules/
+# 로컬 시험망용 설정
+web/app-config.local.json
+.claude/

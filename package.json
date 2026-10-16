@@ -1,0 +1,17 @@
+{
+  "name": "tcrypto-lab",
+  "version": "0.2.0",
+  "private": true,
+  "description": "금융감독 학습용 세폴리아 스테이블코인·상점 실험실",
+  "type": "module",
+  "scripts": {
+    "compile": "node tools-js/compile.mjs",
+    "vendor": "node tools-js/vendor.mjs",
+    "serve": "node tools-js/serve.mjs web 8080",
+    "find-deployment": "node tools-js/find-deployment.mjs"
+  },
+  "devDependencies": {
+    "ethers": "6.15.0",
+    "solc": "0.8.30"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "appName": "TCrypto 감독 실험실",
+  "network": {
+    "chainId": 11155111,
+    "name": "Sepolia",
+    "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
+    "explorer": "https://sepolia.etherscan.io",
+    "currency": { "name": "Sepolia Ether", "symbol": "SepoliaETH", "decimals": 18 },
+    "faucets": [
+      { "name": "Google Cloud 세폴리아 배급처", "url": "https://cloud.google.com/application/web3/faucet/ethereum/sepolia" },
+      { "name": "Alchemy 세폴리아 배급처", "url": "https://www.alchemy.com/faucets/ethereum-sepolia" }
+    ]
+  },
+  "issuer": null,
+  "contracts": null,
+  "deployBlock": null
+}

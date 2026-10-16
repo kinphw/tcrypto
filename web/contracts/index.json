@@ -1,0 +1,27 @@
+[
+  {
+    "name": "CoinFactory",
+    "sourceFile": "CoinFactory.sol",
+    "bytes": 5043
+  },
+  {
+    "name": "FriendCoin",
+    "sourceFile": "CoinFactory.sol",
+    "bytes": 2812
+  },
+  {
+    "name": "Market",
+    "sourceFile": "Market.sol",
+    "bytes": 5844
+  },
+  {
+    "name": "Members",
+    "sourceFile": "Members.sol",
+    "bytes": 2245
+  },
+  {
+    "name": "WonCoin",
+    "sourceFile": "WonCoin.sol",
+    "bytes": 8619
+  }
+]

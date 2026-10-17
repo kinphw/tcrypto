@@ -266,3 +266,8 @@ a.scan { font-size: 12px; white-space: nowrap; margin-left: 6px; }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11.5px; background: var(--surface-2); }
 
 @media (max-width: 600px) { #rpclog header label, #rpclogClear { display: none; } .drawer-handle { font-size: 12px; } }
+
+/* 긴 해시가 휴대폰 화면 밖으로 밀어내지 않도록 */
+.page-head > div { min-width: 0; }
+.page-head .sub, .verify .hash, .kv .hash, .steps .hash { word-break: break-all; }
+.steps > li > div { min-width: 0; }

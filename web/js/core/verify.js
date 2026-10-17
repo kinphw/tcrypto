@@ -188,56 +188,76 @@ export function verifyRoots(block, rpcTxs, receipts) {
   return out;
 }
 
-// ───────────────────────── 계정 상태 증명 (eth_getProof) ─────────────────────────
+// ───────────────────────── 머클 증명 (eth_getProof) ─────────────────────────
+const nodeKind = (node) => (node.length === 17 ? 'branch' : (E().getBytes(node[0])[0] >> 4) >= 2 ? 'leaf' : 'extension');
+
 /**
- * stateRoot 하나만 믿고, 노드가 준 증명 경로를 따라 내려가 계정 값(nonce, 잔액, storageHash, codeHash)을 확인.
- * 경라이트 클라이언트가 전체 장부 없이 잔액을 검증하는 원리.
+ * 루트 해시 하나에서 출발해, 노드가 준 증명 노드들을 따라 keyHash 경로로 내려간다.
+ * 각 노드의 해시가 부모가 가리킨 값과 같은지 확인하므로, 루트만 믿으면 나머지는 믿을 필요가 없다.
+ * 결과: found(값 있음) / absent(이 키는 비어 있음이 증명됨) / bad(증명이 틀림)
  */
-export function verifyAccountProof(stateRoot, address, proof) {
-  const path = toNibbles(E().keccak256(address));
-  let expected = stateRoot;
-  let depth = 0;
+export function walkTrieProof(root, keyHash, proofNodes) {
+  const path = toNibbles(keyHash);
   const steps = [];
-  for (let i = 0; i < proof.accountProof.length; i++) {
-    const nodeRlp = proof.accountProof[i];
-    const h = E().keccak256(nodeRlp);
-    const hashOk = h === expected;
-    const node = E().decodeRlp(nodeRlp);
-    const kind = node.length === 17 ? 'branch' : (E().getBytes(node[0])[0] >> 4) >= 2 ? 'leaf' : 'extension';
-    steps.push({ index: i, kind, hash: h, hashOk, bytes: bytesLen(nodeRlp) });
-    if (!hashOk) return { ok: false, steps, reason: `${i}번째 노드 해시가 상위 노드가 가리키는 값과 다름` };
-    if (kind === 'branch') {
-      expected = node[path[depth]];
-      depth++;
-      if (expected === '0x') return { ok: false, steps, reason: '경로가 비어 있음 (계정 없음)' };
+  if (root === EMPTY_TRIE) return { status: 'absent', steps, reason: '빈 트리 — 아무 값도 없음' };
+  let expected = root;
+  let depth = 0;
+  let i = 0;
+  for (;;) {
+    let node;
+    if (Array.isArray(expected)) {
+      node = expected; // 32바이트보다 작은 노드는 부모 안에 통째로 들어 있다
+      steps.push({ kind: nodeKind(node), hash: '(부모 노드 안에 내장)', hashOk: true, bytes: bytesLen(E().encodeRlp(node)) });
+    } else {
+      if (expected === '0x') return { status: 'absent', steps, reason: '경로가 빈 칸에서 끝남 — 이 칸은 비어 있음(값 0)' };
+      const nodeRlp = proofNodes[i++];
+      if (!nodeRlp) return { status: 'bad', steps, reason: '증명 노드가 모자람' };
+      const h = E().keccak256(nodeRlp);
+      node = E().decodeRlp(nodeRlp);
+      steps.push({ kind: nodeKind(node), hash: h, hashOk: h === expected, bytes: bytesLen(nodeRlp) });
+      if (h !== expected) return { status: 'bad', steps, reason: `${steps.length}번째 노드의 해시가 부모가 가리킨 값과 다름` };
+    }
+    if (node.length === 17) {
+      if (depth === path.length) return { status: 'found', value: node[16], steps };
+      expected = node[path[depth++]];
       continue;
     }
     const nb = toNibbles(node[0]);
-    const flag = nb[0];
-    const part = flag % 2 ? nb.slice(1) : nb.slice(2);
-    const match = part.every((n, j) => path[depth + j] === n);
-    if (!match) return { ok: false, steps, reason: '경로 불일치 (계정 없음 증명)' };
+    const leaf = nb[0] >= 2;
+    const part = nb[0] % 2 ? nb.slice(1) : nb.slice(2);
+    const match = part.every((n, j) => path[depth + j] === n) && (!leaf || depth + part.length === path.length);
+    if (!match) return { status: 'absent', steps, reason: '경로가 다른 쪽으로 갈라짐 — 이 키는 없음' };
     depth += part.length;
-    if (kind === 'leaf') {
-      const [nonce, balance, storageHash, codeHash] = E().decodeRlp(node[1]);
-      const val = {
-        nonce: nonce === '0x' ? 0n : BigInt(nonce),
-        balance: balance === '0x' ? 0n : BigInt(balance),
-        storageHash,
-        codeHash,
-      };
-      const ok =
-        val.balance === BigInt(proof.balance) &&
-        val.nonce === BigInt(proof.nonce) &&
-        val.storageHash === proof.storageHash &&
-        val.codeHash === proof.codeHash;
-      return { ok, steps, value: val, reason: ok ? '증명 성공' : '리프 값이 노드가 주장한 값과 다름' };
-    }
+    if (leaf) return { status: 'found', value: node[1], steps };
     expected = node[1];
   }
-  return { ok: false, steps, reason: '증명이 리프에 도달하지 못함' };
 }
 
+/** 계정 증명: stateRoot → keccak256(주소) 경로 → [nonce, balance, storageHash, codeHash] */
+export function verifyAccountProof(stateRoot, address, proof) {
+  const r = walkTrieProof(stateRoot, E().keccak256(address), proof.accountProof);
+  if (r.status === 'bad') return { ok: false, steps: r.steps, reason: r.reason };
+  if (r.status === 'absent') {
+    const ok = BigInt(proof.balance) === 0n && BigInt(proof.nonce) === 0n;
+    return { ok, steps: r.steps, value: null, reason: ok ? '이 주소는 아직 장부에 없음 (잔액 0) 이 증명됨' : r.reason };
+  }
+  const [nonce, balance, storageHash, codeHash] = E().decodeRlp(r.value);
+  const val = { nonce: nonce === '0x' ? 0n : BigInt(nonce), balance: balance === '0x' ? 0n : BigInt(balance), storageHash, codeHash };
+  const ok = val.balance === BigInt(proof.balance) && val.nonce === BigInt(proof.nonce) && val.storageHash === proof.storageHash && val.codeHash === proof.codeHash;
+  return { ok, steps: r.steps, value: val, reason: ok ? '증명 성공' : '잎 노드의 값이 노드가 주장한 값과 다름' };
+}
+
+/** 저장공간 칸 증명: 컨트랙트의 storageHash → keccak256(칸 번호) 경로 → 그 칸의 값 */
+export function verifyStorageProof(storageHash, sp) {
+  const key = E().zeroPadValue(E().toBeHex(BigInt(sp.key)), 32);
+  const r = walkTrieProof(storageHash, E().keccak256(key), sp.proof);
+  const claimed = BigInt(sp.value);
+  if (r.status === 'bad') return { ok: false, steps: r.steps, reason: r.reason };
+  if (r.status === 'absent') return { ok: claimed === 0n, steps: r.steps, value: 0n, reason: claimed === 0n ? '이 칸은 비어 있음(값 0) 이 증명됨' : '노드는 값이 있다는데 증명은 비어 있음' };
+  const raw = E().decodeRlp(r.value);
+  const value = raw === '0x' ? 0n : BigInt(raw);
+  return { ok: value === claimed, steps: r.steps, value, reason: value === claimed ? '증명 성공' : '잎 노드의 값이 노드가 주장한 값과 다름' };
+}
 // ───────────────────────── 배포 코드 검증 ─────────────────────────
 /** 체인에 있는 런타임 코드가 소스 컴파일 결과와 같은지 (immutable 값 자리는 가리고 비교) */
 export function verifyRuntimeCode(onchainHex, artifact) {

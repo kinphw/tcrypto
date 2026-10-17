@@ -1,7 +1,8 @@
-import { chain, rpc } from '../core/chain.js';
+import { chain, rpc, getContract, getEvents } from '../core/chain.js';
 import { html, render, $, fmtNum, fmtUnits, fmtTime, short, blockLink, addrLink, explain, kv, verifyBox, tag, copyBtn, scan } from '../core/ui.js';
 import { verifyTransaction } from '../core/verify.js';
 import { decodeInput, decodeLog, fmtArg } from '../core/abi.js';
+import { cellsForTx, readCell } from '../core/ledger.js';
 
 const E = () => globalThis.ethers;
 const TYPES = { 0: '레거시 (type 0)', 1: '접근목록 (type 1)', 2: 'EIP-1559 (type 2)', 3: '블롭 (type 3)', 4: '계정 위임 (type 4)' };
@@ -12,6 +13,87 @@ function argsTable(inputs, args) {
     <td class="break">${inp.type === 'address' ? addrLink(args[i]) : fmtArg(inp, args[i])}</td></tr>`)}</tbody></table>`;
 }
 
+
+const TOKEN_MOVES = ['transfer', 'transferWithMemo', 'transferFrom'];
+
+/** 거래의 원본 칸(to · value · data)을 펼쳐 '코인 이전'과 '토큰 이전'의 차이를 보여준다 */
+function rawFieldsCard(t, dec, sym) {
+  const data = t.input;
+  const isEth = data === '0x';
+  const isToken = dec?.kind === 'call' && ['WonCoin', 'FriendCoin'].includes(dec.contract) && TOKEN_MOVES.includes(dec.name);
+  const words = [];
+  if (dec?.kind === 'call') {
+    const body = data.slice(10);
+    for (let i = 0; i * 64 < body.length && i < 12; i++) {
+      const w = '0x' + body.slice(i * 64, i * 64 + 64);
+      const inp = dec.inputs[i];
+      let label = '가변 데이터 (문자열·바이트의 길이와 내용)';
+      if (inp) label = ['string', 'bytes'].includes(inp.type) || inp.type.endsWith(']') ? `${inp.name}: 뒤쪽 데이터가 시작하는 위치` : `${inp.name} (${inp.type})`;
+      words.push({ w, label });
+    }
+    // 문자열·바이트 인자는 '위치' 칸이 가리키는 곳에 [길이][내용…] 순서로 들어 있다
+    dec.inputs.forEach((inp, i) => {
+      if (!['string', 'bytes'].includes(inp.type) || !words[i]) return;
+      const at = Number(BigInt(words[i].w) / 32n);
+      if (!words[at]) return;
+      const len = Number(BigInt(words[at].w));
+      words[at].label = `${inp.name} 의 길이 = ${len}바이트`;
+      const shown = inp.type === 'string' ? `“${dec.args[i]}” (UTF-8)` : '바이트 내용';
+      for (let k = 1; k <= Math.ceil(len / 32) && words[at + k]; k++) words[at + k].label = `${inp.name} 내용${k === 1 ? ': ' + shown : ' (이어짐)'}`;
+    });
+  }
+  return html`<div class="card">
+    <div class="card-head"><h2>거래의 원본 칸</h2><span class="muted small">서명된 거래에 실제로 들어 있는 것</span></div>
+    ${kv([
+      [html`<code>to</code>`, t.to ? addrLink(t.to, { full: true }) : html`<span class="muted">비어 있음 (새 컨트랙트 생성)</span>`,
+        isEth ? '돈을 받는 사람' : isToken ? html`<b>받는 사람이 아니라 토큰 프로그램</b>` : '실행할 프로그램(컨트랙트)'],
+      [html`<code>value</code>`, html`${E().formatEther(BigInt(t.value))} ${sym}`, isEth ? html`<b>보내는 코인 금액이 바로 이 칸</b>` : '함께 보내는 코인 (토큰 이전이면 보통 0)'],
+      [html`<code>data</code>`, isEth ? html`<span class="muted">비어 있음</span>` : html`${fmtNum((data.length - 2) / 2)}바이트`, isEth ? '실행할 프로그램이 없으니 비어 있음' : isToken ? html`<b>받는 사람과 금액은 여기 안에</b>` : '어떤 함수를 어떤 값으로 부를지'],
+    ])}
+    ${isEth ? html`<div class="verify ok"><div class="vtitle">${tag('코인(ETH) 이전', 'info')}</div><div class="small">value 칸에 금액을 적어 to 에게 보냅니다. 프로그램이 실행되지 않고, 이더리움 시스템이 두 주소의 balance 칸을 직접 고칩니다. 그래서 가스가 21,000 으로 고정입니다.</div></div>` : ''}
+    ${isToken ? html`<div class="verify ok"><div class="vtitle">${tag('토큰 이전', 'info')}</div><div class="small">거래는 토큰 프로그램에게 “<code>${dec.name}</code> 함수를 실행해 줘”라고 보내는 것입니다. 프로그램이 규칙(잔액·동결·정지)을 검사한 뒤 <b>자기 저장공간</b>의 두 줄을 고칩니다. 그래서 value 는 0이고, 아래 ‘장부 변화’에서 사람 주소가 아니라 토큰 프로그램의 칸이 바뀌는 것을 볼 수 있습니다.</div></div>` : ''}
+    ${words.length ? html`<h3 style="margin-top:12px">data 를 32바이트씩 쪼개 보기 (ABI 인코딩)</h3>
+      <div class="table-wrap"><table><tbody>
+        <tr><td><code>${data.slice(0, 10)}</code></td><td class="small">함수 선택자 = keccak256("${dec.signature}") 의 앞 4바이트</td></tr>
+        ${words.map(({ w, label }) => html`<tr><td class="hash small">${w}</td><td class="small">${label}</td></tr>`)}
+      </tbody></table></div>` : ''}
+  </div>`;
+}
+
+/** 이 거래로 바뀐 장부 칸: 직전 블록 vs 거래가 담긴 블록 */
+async function ledgerChanges(t, receipt, block, sym) {
+  const n = Number(receipt.blockNumber);
+  const cells = await cellsForTx(t, receipt, block);
+  const rows = [];
+  let fallback = false;
+  for (const c of cells) {
+    let before = await readCell(c, n - 1);
+    let after = await readCell(c, n);
+    let how = '노드에 직접 조회';
+    if ((before === null || after === null) && c.kind === 'storage' && c.var === 'balanceOf') {
+      // 공개 노드가 과거 상태를 지웠으면 Transfer 기록을 처음부터 다시 더해 그 시점의 잔액을 계산
+      const tok = await getContract(c.token, c.address);
+      const k = E().zeroPadValue(c.key, 32);
+      const evs = [...await getEvents(tok, 'Transfer', [k]), ...await getEvents(tok, 'Transfer', [null, k])];
+      const at = (blockN) => evs.filter(({ log }) => Number(log.blockNumber) <= blockN)
+        .reduce((s, { ev }) => s + (ev.args.to === c.key ? ev.args.value : 0n) - (ev.args.from === c.key ? ev.args.value : 0n), 0n);
+      before = at(n - 1); after = at(n); how = 'Transfer 기록으로 계산'; fallback = true;
+    }
+    const fmt = (v) => (v === null ? html`<span class="muted">조회 불가</span>` : c.kind === 'eth' ? html`${E().formatEther(v)} <span class="muted small">${sym}</span>` : fmtNum(v));
+    const delta = before !== null && after !== null ? after - before : null;
+    rows.push(html`<tr>
+      <td>${c.kind === 'eth' ? html`계정 ${addrLink(c.address)} 의 <code>balance</code> 칸<br><span class="muted small">${c.role}</span>`
+        : html`${c.token === 'WonCoin' ? '원화코인' : '친구 코인'} 프로그램 ${addrLink(c.address)} 의 저장공간<br><code>${c.var}[${short(c.key, 4, 4)}${c.key2 ? '][' + short(c.key2, 4, 4) : ''}]</code> ${c.key2 ? '' : html`<span class="muted small">(${addrLink(c.key)})</span>`}
+          <br><span class="hash small" title="${c.slot}">칸 ${short(c.slot, 6, 6)}</span>`}</td>
+      <td class="num">${fmt(before)}</td><td class="num">${fmt(after)}</td>
+      <td class="num" style="color:var(${delta === null || delta === 0n ? '--muted' : delta < 0n ? '--bad' : '--ok'})">${delta === null ? '' : (delta > 0n ? '+' : '') + (c.kind === 'eth' ? E().formatEther(delta) : fmtNum(delta))}</td>
+      <td class="small muted">${how}</td></tr>`);
+  }
+  return html`<div class="table-wrap"><table><thead><tr><th>바뀐 칸</th><th class="num">전 (블록 #${fmtNum(n - 1)})</th><th class="num">후 (블록 #${fmtNum(n)})</th><th class="num">변화</th><th>방법</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small muted">같은 블록에 이 칸을 건드린 다른 거래가 있으면 그 변화도 함께 보입니다.
+      ${fallback ? '공개 노드는 최근 약 100블록의 과거만 기억해서, 오래된 거래의 토큰 잔액은 Transfer 기록을 다시 더해 계산했습니다.' : ''}
+      ${scan('tx', t.hash + '#statechange', '이더스캔 State 탭에서도 같은 변화 보기 ↗')}</p>`;
+}
 export default {
   title: '거래 해부',
   async render(view, params, app) {
@@ -87,6 +169,10 @@ export default {
           <details style="margin-top:8px"><summary class="small muted">입력 데이터 원본 (${fmtNum((t.input.length - 2) / 2)} 바이트)</summary><pre class="code">${t.input.length > 4000 ? t.input.slice(0, 4000) + '…' : t.input}</pre></details>
         </div>
 
+        ${rawFieldsCard(t, dec, sym)}
+        <div class="card"><div class="card-head"><h2>장부 변화 — 이 거래로 바뀐 칸</h2><span class="muted small">거래 직전 블록과 직후 블록의 같은 칸을 비교</span></div>
+          <div id="ledger" class="loading">${receipt ? '칸을 읽는 중…' : '블록에 담기면 보입니다'}</div></div>
+
         <div class="card"><div class="card-head"><h2>전자서명 해부</h2><span class="muted small">정말 ‘보낸 사람’이 승인했는가?</span></div>
           ${v.unsupported ? html`<p class="muted">type ${v.type} 거래는 이 화면에서 서명 재계산을 지원하지 않습니다. ${scan('tx', hash)}</p>` : html`
             ${explain('원리', html`<p>거래 안에는 보낸 사람 주소가 들어 있지 않습니다. 노드는 서명(r, s, v)과 서명 대상 해시만으로 공개키를 <b>복원</b>하고, 거기서 주소를 계산합니다.
@@ -110,6 +196,7 @@ export default {
         </div>
         <details class="card"><summary><b>노드가 준 원본 JSON</b></summary><pre class="code">${JSON.stringify({ transaction: { ...t, input: t.input.length > 2000 ? t.input.slice(0, 2000) + '…' : t.input }, receipt }, null, 2)}</pre></details>
       `);
+      if (receipt) ledgerChanges(t, receipt, block, sym).then((h) => render($('#ledger', view), h)).catch((e) => render($('#ledger', view), html`<span class="muted">칸을 읽지 못했습니다: ${e.message}</span>`));
       return !!receipt;
     };
     const done = await draw();

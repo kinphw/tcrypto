@@ -33,6 +33,7 @@
 | | `app.onBlock(fn)`, `app.onWallet(fn)` | 화면 전환 시 자동 해제되는 구독 |
 | `core/verify.js` | `verifyBlockHash`, `verifyTransaction`, `verifyRuntimeCode` | 노드를 믿지 않고 직접 재계산 |
 | `core/abi.js` | `decodeInput`, `decodeLog`, `identify` | ABI 해독, 코드로 컨트랙트 식별 |
+| `core/ledger.js` | `readAccount`, `mappingSlot`, `cellsForTx`, `readCell` | 계정 4칸·저장공간 칸 읽기(머클 증명 포함), 거래 전/후 칸 비교 |
 | `core/ui.js` | `html```, `kv`, `explain`, `verifyBox`, `stat`, `won`, `scan`, `busy`, `toast` | 화면 조립 (`scan('tx', 해시)` = 이더스캔 링크) |
 
 `explain(제목, 본문, { kind: 'sup' })` 은 노란색 ‘감독 관점’ 상자입니다.

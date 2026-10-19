@@ -143,7 +143,7 @@ function drawMobileBar() {
   $('#mmOpen').addEventListener('click', (ev) => { ev.preventDefault(); location.href = metamaskDeepLink(); });
   $('#mmCopy').addEventListener('click', () => {
     const url = location.href;
-    navigator.clipboard?.writeText(url).then(() => toast('복사했습니다. MetaMask 앱 → 브라우저 탭 주소창에 붙여넣으세요.')).catch(() => prompt('복사하세요', url));
+    navigator.clipboard?.writeText(url).then(() => toast('복사했습니다. MetaMask 앱 → 탐색(돋보기) → 위쪽 검색창에 붙여넣으세요.')).catch(() => prompt('복사하세요', url));
   });
 }
 

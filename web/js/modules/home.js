@@ -37,7 +37,7 @@ function walletIntro(view) {
       <div class="card"><ol class="steps">
         <li><div><b>MetaMask 앱 설치</b><br>앱스토어·플레이스토어에서 <b>MetaMask</b> → 설치 → <b>새 지갑 만들기</b>. 비밀 복구 구문 12단어는 종이에 적어 두세요.</div></li>
         <li><div><b>이 사이트를 MetaMask 앱에서 열기</b><br><a class="btn btn-primary" href="${deep}" style="margin-top:6px">MetaMask 앱에서 열기</a>
-          <div class="small muted" style="margin-top:6px">버튼이 안 되면: MetaMask 앱 아래쪽 <b>브라우저</b> 탭 → 주소창에 <code>${location.host}${location.pathname}</code></div></div></li>
+          <div class="small muted" style="margin-top:6px">버튼이 안 되면: MetaMask 앱 아래쪽 <b>탐색</b>(돋보기, 버전에 따라 ‘브라우저’) → 위쪽 검색창에 <code>${location.host}${location.pathname}</code></div></div></li>
       </ol></div>`);
     return true;
   }
@@ -48,7 +48,7 @@ function walletIntro(view) {
         같은 잔액을 MetaMask 와 이더스캔에서도 따로 확인할 수 있어요.</p></div>
       <div class="card"><ol class="steps">
         <li><div><b>크롬에 MetaMask 설치</b><br><a href="https://metamask.io/download/" target="_blank" rel="noopener">metamask.io/download</a> → 크롬 확장 프로그램 추가 → <b>새 지갑 만들기</b>. 복구 구문 12단어는 종이에.</div></li>
-        <li><div><b>이 페이지 새로고침</b> 후 오른쪽 위 <b>MetaMask 연결</b>. 휴대폰이라면 MetaMask 앱의 브라우저 탭에서 여세요.</div></li>
+        <li><div><b>이 페이지 새로고침</b> 후 오른쪽 위 <b>MetaMask 연결</b>. 휴대폰이라면 MetaMask 앱 안에서 여세요 (탐색 → 검색창에 주소).</div></li>
       </ol></div>`);
     return true;
   }

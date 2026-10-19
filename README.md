@@ -1,6 +1,6 @@
 # 청라더헤븐 — 원화 스테이블코인 서길원(sgw) 거래소
 
-**링크: <https://kinphw.github.io/tcrypto/>** (휴대폰은 MetaMask 앱 안의 브라우저로 열기)
+**링크: <https://kinphw.github.io/tcrypto/>** · 휴대폰: <https://metamask.app.link/dapp/kinphw.github.io/tcrypto> (MetaMask 앱 안에서 바로 열림)
 
 이더리움 공식 시험망 **세폴리아(Sepolia)** 위에서 돌아가는 작은 경제 실험실입니다.
 실제 원화 스테이블코인(USDC·USDT 구조)을 최대한 비슷하게 흉내 내고, 블록체인에 실제로 어떻게 기록되는지 원본 데이터까지 들여다볼 수 있게 만들었습니다.

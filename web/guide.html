@@ -60,7 +60,7 @@ table { border-collapse: collapse; width: 100%; font-size: 14px; }
 .table-wrap { overflow-x: auto; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 th { font: 600 12px/1.3 var(--f-mono); color: var(--muted); letter-spacing: .04em; }
-a { color: var(--ledger); }
+a { color: var(--ledger); overflow-wrap: anywhere; }
 a:focus-visible { outline: 2px solid var(--ledger); outline-offset: 2px; }
 footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 16px; }
 </style>
@@ -73,7 +73,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule)
   </header>
 
   <dl class="facts">
-    <div><dt>거래소 링크</dt><dd><a href="https://kinphw.github.io/tcrypto/">kinphw.github.io/tcrypto</a></dd></div>
+    <div><dt>휴대폰 (MetaMask 앱으로 열림)</dt><dd><a href="https://metamask.app.link/dapp/kinphw.github.io/tcrypto">metamask.app.link/dapp/kinphw.github.io/tcrypto</a></dd></div>
+    <div><dt>PC 크롬</dt><dd><a href="https://kinphw.github.io/tcrypto/">kinphw.github.io/tcrypto</a></dd></div>
     <div><dt>블록체인</dt><dd>Ethereum Sepolia (시험망)</dd></div>
     <div><dt>지갑</dt><dd>MetaMask</dd></div>
     <div><dt>쓰는 돈</dt><dd>서길원 sgw (1 sgw = 1원)</dd></div>
@@ -105,7 +106,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule)
       <h2>거래소 링크 열고 연결하기</h2>
       <ul>
         <li><b>PC</b>: 크롬에서 <a href="https://kinphw.github.io/tcrypto/">https://kinphw.github.io/tcrypto/</a> 를 엽니다.</li>
-        <li><b>휴대폰</b>: MetaMask 앱 아래쪽 <b>브라우저</b> 탭에서 위 주소를 엽니다. 카톡에서 링크를 눌러 일반 브라우저로 열렸다면 화면의 <b>MetaMask 앱에서 열기</b> 버튼을 누르세요 (일반 인터넷 앱에서는 지갑이 연결되지 않아요).</li>
+        <li><b>휴대폰</b>: 이 링크를 누르세요 → <a href="https://metamask.app.link/dapp/kinphw.github.io/tcrypto"><b>metamask.app.link/dapp/kinphw.github.io/tcrypto</b></a><br>MetaMask 앱이 열리고, 앱 안의 인터넷 창으로 거래소가 바로 뜹니다. (사파리·크롬 같은 일반 인터넷 앱에는 지갑이 없어 연결되지 않아요)</li>
+        <li><b>링크가 안 되면</b>: MetaMask 앱 아래쪽 <b>탐색</b>(돋보기) → 위쪽 검색창에 <code>kinphw.github.io/tcrypto</code> 입력. 앱 버전에 따라 이름이 ‘브라우저’일 수도 있어요.</li>
       </ul>
       <p><b>MetaMask 연결</b> → MetaMask 에서 승인.</p>
       <p class="check"><b>확인:</b> 오른쪽 위 버튼이 내 주소로 바뀌면 연결된 것입니다. 이 사이트는 서버가 없는 화면일 뿐이고, 버튼을 누르면 내 MetaMask 가 블록체인에 직접 서명해 보냅니다.</p>
@@ -165,7 +167,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule)
     <div class="table-wrap"><table>
       <thead><tr><th>증상</th><th>해결</th></tr></thead>
       <tbody>
-        <tr><td>‘MetaMask 설치 필요’가 계속 보임</td><td>PC는 크롬에 확장 프로그램이 켜져 있는지, 휴대폰은 MetaMask 앱의 브라우저 탭에서 열었는지 확인하세요.</td></tr>
+        <tr><td>‘MetaMask 설치 필요’가 계속 보임</td><td>PC는 크롬에 확장 프로그램이 켜져 있는지, 휴대폰은 위의 <a href="https://metamask.app.link/dapp/kinphw.github.io/tcrypto">MetaMask 앱 링크</a>로 열었는지 확인하세요.</td></tr>
+        <tr><td>‘트랜잭션 실패’ (확인 창에 ‘스마트 계정’ 문구)</td><td>MetaMask 의 스마트 계정 기능 때문입니다. MetaMask <b>설정 → 스마트 계정 → Sepolia</b> 스위치를 끄고 다시 하세요.</td></tr>
         <tr><td>‘Sepolia 로 전환’ 버튼이 보임</td><td>버튼을 누르거나 MetaMask 에서 직접 Sepolia 를 고르세요.</td></tr>
         <tr><td>‘insufficient funds’ 오류</td><td>수수료 방식이 ‘내가 냄’인데 SepoliaETH 가 없습니다. ‘대납 요청’이나 ‘자동’으로 바꾸세요.</td></tr>
         <tr><td>링크를 보냈는데 반영이 안 됨</td><td>발행자가 아직 링크를 열어 올리지 않은 것입니다. 링크는 7일간 유효하고, 한 번만 쓸 수 있습니다.</td></tr>

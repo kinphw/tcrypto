@@ -38,7 +38,7 @@ export async function describeRequest(obj, { short: brief = false } = {}) {
 
 /** 상태 표시 배지 */
 export function statusTag(obj, s) {
-  if (s === 'ready') return tag(obj.k === 'notice' || obj.k === 'gas' ? '미처리' : '실행 가능', 'ok');
+  if (s === 'ready') return tag('미처리', 'ok');
   if (s === 'used') return tag(obj.k === 'notice' ? '발행됨' : obj.k === 'gas' ? '처리됨' : '사용됨');
   if (s === 'wait') return tag('순서 대기', 'warn');
   return tag(s === 'expired' ? '만료' : '오류', 'bad');

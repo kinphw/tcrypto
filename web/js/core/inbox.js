@@ -80,12 +80,12 @@ export async function requestStatus(obj, v, ctx = {}) {
     ctx.fwdNonce[from] ??= await (await getContract('Forwarder')).nonces(obj.req.from);
     if (ctx.fwdNonce[from] > BigInt(obj.req.nonce)) return ['used', '이미 실행됐거나, 이 사람의 다른 요청이 먼저 실행돼 무효가 됐습니다'];
     if (ctx.fwdNonce[from] < BigInt(obj.req.nonce)) return ['wait', '같은 사람의 앞선 요청이 먼저 처리돼야 합니다 (순서 번호)'];
-    return Number(obj.req.deadline) < nowSec ? ['expired', '유효기간이 지났습니다'] : ['ready', '실행 가능'];
+    return Number(obj.req.deadline) < nowSec ? ['expired', '유효기간이 지났습니다'] : ['ready', '아직 안 올림 — 지금 올릴 수 있음'];
   }
   if (obj.k === 'auth' || obj.k === 'buy') {
     const used = await (await getContract('Seogilwon')).authorizationState(obj.auth.from, obj.auth.nonce);
     if (used) return ['used', '이미 사용된 서명입니다 (한 번만 쓸 수 있음)'];
-    return Number(obj.auth.validBefore) < nowSec ? ['expired', '유효기간이 지났습니다'] : ['ready', '실행 가능'];
+    return Number(obj.auth.validBefore) < nowSec ? ['expired', '유효기간이 지났습니다'] : ['ready', '아직 안 올림 — 지금 올릴 수 있음'];
   }
   if (obj.k === 'notice') {
     // 같은 신고서로 두 번 발행하지 않도록 발행 메모에 신고서 지문(서명 대상 해시)을 남긴다

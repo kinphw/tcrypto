@@ -66,7 +66,8 @@ export default {
       const ctx = {};
       const rows = [];
       for (const it of res.items) rows.push({ ...it, st: await requestStatus(it.obj, it.v, ctx).catch(() => ['bad', '상태 확인 실패']) });
-      const pending = rows.filter((r) => r.st[0] === 'ready' || r.st[0] === 'wait');
+      // 처리 대기는 먼저 들어온 것부터 (같은 사람의 요청은 순서대로만 실행되므로)
+      const pending = rows.filter((r) => r.st[0] === 'ready' || r.st[0] === 'wait').sort((a, b) => a.time - b.time);
       const done = rows.filter((r) => !(r.st[0] === 'ready' || r.st[0] === 'wait'));
 
       const row = async (r, actions) => {

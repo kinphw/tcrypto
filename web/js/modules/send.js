@@ -1,6 +1,7 @@
-import { chain, wallet, getContract, getEvents, writable, track, blockTime } from '../core/chain.js';
-import { html, render, $, fmtNum, timeAgo, short, txLink, addrLink, explain, tag, busy, toast, won, esc } from '../core/ui.js';
-import { notReady } from './home.js';
+import { chain, wallet, getContract, getEvents, writable, blockTime } from '../core/chain.js';
+import { html, render, $, fmtNum, timeAgo, txLink, addrLink, explain, busy, won, esc } from '../core/ui.js';
+import { perform, signTransfer, signForward, feeMode } from '../core/relay.js';
+import { notReady, feeToggle } from './home.js';
 
 const E = () => globalThis.ethers;
 
@@ -13,10 +14,10 @@ export function resolveRecipient(q) {
   throw new Error(`'${q}' 라는 닉네임의 회원이 없습니다. 닉네임이나 0x 주소를 입력하세요.`);
 }
 
-/** 내가 보유한 코인 목록: 원화코인 + 보유 중인 친구 코인 */
+/** 내가 보유한 코인 목록: 서길원 + 보유 중인 친구 코인 */
 export async function myCoins(me) {
-  const won_ = await getContract('WonCoin');
-  const list = [{ address: chain.cfg.contracts.WonCoin, symbol: 'sgw', name: '서길원', balance: me ? await won_.balanceOf(me) : 0n, official: true }];
+  const sgw = await getContract('Seogilwon');
+  const list = [{ address: chain.cfg.contracts.Seogilwon, symbol: 'sgw', name: '서길원', balance: me ? await sgw.balanceOf(me) : 0n, official: true }];
   const f = await getContract('CoinFactory');
   for (const a of await f.allCoins()) {
     const c = await getContract('FriendCoin', a);
@@ -45,13 +46,14 @@ export default {
         </div>
         <div class="field"><label for="memo">메모 (블록체인에 영구 기록, 누구나 볼 수 있음)</label><input id="memo" maxlength="100" placeholder="예: 점심값"></div>
         <div id="preview" class="small muted" style="margin-bottom:10px"></div>
+        <div class="row" style="margin-bottom:12px"><span class="small muted">수수료</span><span id="feeSeg"></span><span class="small muted" id="feeNote"></span></div>
         <button class="btn btn-primary" id="send" ${me ? '' : 'disabled'}>MetaMask 로 서명하고 보내기</button>
         ${me ? '' : html`<p class="small muted" style="margin-top:6px">먼저 <a href="#/home">MetaMask 를 연결</a>하세요.</p>`}
       </div>
       ${explain('보내기를 누르면 무슨 일이?', html`<ol>
-        <li>이 웹사이트가 “원화코인 컨트랙트의 <code>transferWithMemo(받는주소, 금액, 메모)</code> 함수를 실행하라”는 거래를 만들어 MetaMask 에 넘깁니다.</li>
-        <li>MetaMask 가 내용을 보여주고, 승인하면 <b>여러분의 개인키로 서명</b>해서 이더리움 노드에 보냅니다. 이 웹사이트는 서명에 관여하지 못합니다.</li>
-        <li>약 12초마다 만들어지는 블록에 담기면, 컨트랙트가 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</li>
+        <li><b>내가 냄</b>: 서길원 프로그램의 <code>transferWithMemo(받는주소, 금액, 메모)</code> 를 실행하라는 거래를 MetaMask 가 서명해 보내고, 내가 ETH 수수료를 냅니다.</li>
+        <li><b>대납 요청</b>: 내 서길원을 이 사람에게 보내도 된다는 내용(EIP-3009)에 서명만 하고, 그 서명을 발행자가 블록체인에 올립니다. 수수료는 발행자가 냅니다. 메모는 표준 서명 양식에 칸이 없어 기록되지 않습니다.</li>
+        <li>어느 쪽이든 블록에 담기면 서길원 프로그램이 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</li>
       </ol>`)}
       <div class="card"><h2>최근 송금 (전체 공개)</h2><div id="recent" class="loading">불러오는 중…</div></div>
     `);
@@ -64,6 +66,8 @@ export default {
     };
     $('#to', view).addEventListener('input', updatePreview);
     updatePreview();
+    const showMode = async () => { $('#feeNote', view).textContent = (await feeMode()) === 'direct' ? '— 내 ETH 로 수수료' : '— 서명만, 대납 링크 생성'; };
+    if (me) { $('#feeSeg', view).appendChild(feeToggle(showMode)); showMode(); }
 
     $('#send', view).addEventListener('click', (ev) => busy(ev.target, async () => {
       const to = resolveRecipient($('#to', view).value);
@@ -71,16 +75,26 @@ export default {
       const v = $('#amt', view).value.trim();
       if (!/^\d+$/.test(v) || BigInt(v) <= 0n) throw new Error('금액을 1 이상 정수로 입력하세요');
       const coinAddr = $('#coin', view).value;
-      const c = coinAddr === chain.cfg.contracts.WonCoin ? await getContract('WonCoin') : await getContract('FriendCoin', coinAddr);
-      const r = await track((await writable(c)).transferWithMemo(to, BigInt(v), $('#memo', view).value.trim()), '송금');
-      if (r.status === 1) location.hash = `#/tx/${r.hash}`;
+      const memo = $('#memo', view).value.trim();
+      const isSgw = coinAddr === chain.cfg.contracts.Seogilwon;
+      const c = isSgw ? await getContract('Seogilwon') : await getContract('FriendCoin', coinAddr);
+      const sym = isSgw ? 'sgw' : await c.symbol();
+      const label = `${chain.members[to.toLowerCase()] || to.slice(0, 8)} 에게 ${BigInt(v).toLocaleString()} ${sym}`;
+      const r = await perform({
+        label,
+        direct: async () => (await writable(c)).transferWithMemo(to, BigInt(v), memo),
+        gasless: () => (isSgw ? signTransfer(to, BigInt(v), label) : signForward(c, 'transferWithMemo', [to, BigInt(v), memo], label)),
+      });
+      if (r.mode === 'direct' && r.receipt.status === 1) location.hash = `#/tx/${r.receipt.hash}`;
     }));
 
-    const coin = await getContract('WonCoin');
-    const memos = await getEvents(coin, 'Memo');
-    const rows = await Promise.all(memos.slice().reverse().slice(0, 20).map(async ({ ev, log }) => html`<tr>
+    const coin = await getContract('Seogilwon');
+    const [transfers, memos] = await Promise.all([getEvents(coin, 'Transfer'), getEvents(coin, 'Memo')]);
+    const memoByTx = Object.fromEntries(memos.map(({ ev, log }) => [log.transactionHash, ev.args.memo]));
+    const peer = transfers.filter(({ ev }) => ev.args.from !== E().ZeroAddress && ev.args.to !== E().ZeroAddress);
+    const rows = await Promise.all(peer.slice().reverse().slice(0, 20).map(async ({ ev, log }) => html`<tr>
       <td class="small">${timeAgo(await blockTime(log.blockNumber))}</td><td>${addrLink(ev.args.from)} → ${addrLink(ev.args.to)}</td>
-      <td class="num">${won(ev.args.value)}</td><td class="small">${ev.args.memo}</td><td>${txLink(log.transactionHash)}</td></tr>`));
+      <td class="num">${won(ev.args.value)}</td><td class="small">${memoByTx[log.transactionHash] || ''}</td><td>${txLink(log.transactionHash)}</td></tr>`));
     render($('#recent', view), rows.length ? html`<div class="table-wrap"><table><thead><tr><th>시각</th><th>보낸 사람 → 받는 사람</th><th class="num">금액</th><th>메모</th><th>거래</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="small muted">블록체인은 공개 장부라 모든 송금이 누구에게나 보입니다. 이름 대신 닉네임·주소만 있을 뿐입니다(가명성).</p>`
       : html`<div class="empty">아직 송금이 없습니다</div>`);

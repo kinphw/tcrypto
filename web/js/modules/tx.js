@@ -4,6 +4,7 @@ import { verifyTransaction, encodeReceipt } from '../core/verify.js';
 import { rlpFields, fieldsTable, hexBlock, words, TX_FIELDS } from '../core/raw.js';
 import { decodeInput, decodeLog, fmtArg } from '../core/abi.js';
 import { cellsForTx, readCell, createAddressSteps } from '../core/ledger.js';
+import { TYPES as SIG_TYPES, forwarderDomain, tokenDomain } from '../core/sigs.js';
 
 const E = () => globalThis.ethers;
 const TYPES = { 0: '레거시 (type 0)', 1: '접근목록 (type 1)', 2: 'EIP-1559 (type 2)', 3: '블롭 (type 3)', 4: '계정 위임 (type 4)' };
@@ -15,7 +16,7 @@ function argsTable(inputs, args) {
 }
 
 
-const TOKEN_MOVES = ['transfer', 'transferWithMemo', 'transferFrom'];
+const TOKEN_MOVES = ['transfer', 'transferWithMemo', 'transferFrom', 'transferWithAuthorization'];
 
 /** 네트워크로 전송되고 블록에 저장되는 거래 바이트 그대로 */
 function rawTxCard(v, type, receipt) {
@@ -52,6 +53,51 @@ function rawLog(l, d) {
       ${words(l.data).map((w, i) => html`<tr><td class="small"><code>data[${i * 32}]</code></td><td class="hash small">${w}</td><td class="small muted">${d ? d.inputs.filter((x) => !x.indexed)[i]?.name || '(가변 데이터)' : ''}</td></tr>`)}
     </tbody></table></div></details>`;
 }
+/** 대납 거래: 서명한 사람(실제 행위자)과 수수료 낸 사람(대납자)을 분리해 보여준다 */
+async function relayCard(t, dec, receipt) {
+  if (!dec || dec.kind !== 'call') return '';
+  const net = chain.cfg.network;
+  const payer = E().getAddress(t.from);
+  let signer = null, rec = null, inner = '', std = '';
+  try {
+    if (dec.contract === 'Forwarder' && dec.name === 'execute') {
+      const [req, sig] = dec.args;
+      const msg = { from: req.from, to: req.to, value: req.value, gas: req.gas, nonce: req.nonce, deadline: req.deadline, data: req.data };
+      signer = req.from;
+      rec = E().verifyTypedData(forwarderDomain(net.chainId, chain.cfg.contracts.Forwarder), { ForwardRequest: SIG_TYPES.ForwardRequest }, msg, sig);
+      const d2 = await decodeInput(req.to, req.data);
+      inner = html`<p class="small">중계기가 ${addrLink(req.to)} 의 <code>${d2?.name || '?'}</code> 함수를 호출하면서, 입력 끝에 <b>서명자 주소 20바이트</b>를 붙였습니다. 대상 프로그램은 이 끝부분을 진짜 호출자로 읽습니다 (ERC-2771).</p>
+        ${d2?.inputs ? argsTable(d2.inputs, d2.args) : ''}`;
+      std = 'ERC-2771 대납 중계';
+    } else if (['transferWithAuthorization', 'receiveWithAuthorization', 'buyWithAuthorization'].includes(dec.name)) {
+      const A = Object.fromEntries(dec.inputs.map((inp, i) => [inp.name, dec.args[i]]));
+      const from = A.from || A.buyer;
+      const to = A.to || chain.cfg.contracts.Market;
+      const kind = dec.name === 'transferWithAuthorization' ? 'TransferWithAuthorization' : 'ReceiveWithAuthorization';
+      const msg = { from, to, value: A.value ?? null, validAfter: A.validAfter, validBefore: A.validBefore, nonce: A.nonce };
+      if (msg.value === null) {
+        // 상점 결제: 서명 금액 = 가격 × 수량 → 영수증의 Purchased 이벤트에서 총액을 읽는다
+        const m = await getContract('Market');
+        const ev = receipt?.logs.map((l) => { try { return m.interface.parseLog(l); } catch { return null; } }).find((x) => x?.name === 'Purchased');
+        msg.value = ev ? ev.args.total : 0n;
+      }
+      signer = from;
+      rec = E().verifyTypedData(tokenDomain(net.chainId, chain.cfg.contracts.Seogilwon), { [kind]: SIG_TYPES[kind] }, msg, E().Signature.from({ v: A.v, r: A.r, s: A.s }));
+      std = 'EIP-3009 서명 송금·결제';
+    } else if (dec.name === 'permit') {
+      std = 'EIP-2612 서명 결제 허용';
+      signer = dec.args[0];
+    } else return '';
+  } catch { return ''; }
+  if (!signer || signer.toLowerCase() === payer.toLowerCase()) return '';
+  return html`<div class="card"><div class="card-head"><h2>대납 해부 — 서명한 사람 ≠ 수수료 낸 사람</h2><span class="muted small">${std}</span></div>
+    ${kv([
+      ['실제 행위자 (서명)', addrLink(signer, { full: true }), '장부에는 이 사람이 한 것으로 기록됨'],
+      ['대납자 (수수료)', addrLink(payer, { full: true }), '이 거래를 블록체인에 올리고 ETH 수수료를 냄'],
+    ])}
+    ${rec ? verifyBox(rec.toLowerCase() === signer.toLowerCase(), '서명 복원 (이 브라우저에서 계산)', html`거래 안에 든 서명값으로 공개키를 복원하면 ${addrLink(rec)} — 행위자와 ${rec.toLowerCase() === signer.toLowerCase() ? '같습니다' : '다릅니다'}. 대납자는 내용을 바꿀 수 없었다는 뜻입니다.`) : ''}
+    ${inner}</div>`;
+}
 /** 새 컨트랙트 주소가 어떻게 정해졌는지: 직접 배포 또는 컨트랙트(코인공장)가 만든 경우 */
 async function newAddressCard(t, receipt) {
   if (!receipt) return '';
@@ -85,7 +131,7 @@ async function newAddressCard(t, receipt) {
 function rawFieldsCard(t, dec, sym) {
   const data = t.input;
   const isEth = data === '0x';
-  const isToken = dec?.kind === 'call' && ['WonCoin', 'FriendCoin'].includes(dec.contract) && TOKEN_MOVES.includes(dec.name);
+  const isToken = dec?.kind === 'call' && ['SeogilwonV1', 'SeogilwonV2', 'FriendCoin'].includes(dec.contract) && TOKEN_MOVES.includes(dec.name);
   const words = [];
   if (dec?.kind === 'call') {
     const body = data.slice(10);
@@ -148,7 +194,7 @@ async function ledgerChanges(t, receipt, block, sym) {
     const delta = before !== null && after !== null ? after - before : null;
     rows.push(html`<tr>
       <td>${c.kind === 'eth' ? html`계정 ${addrLink(c.address)} 의 <code>balance</code> 칸<br><span class="muted small">${c.role}</span>`
-        : html`${c.token === 'WonCoin' ? '원화코인' : '친구 코인'} 프로그램 ${addrLink(c.address)} 의 저장공간<br><code>${c.var}[${short(c.key, 4, 4)}${c.key2 ? '][' + short(c.key2, 4, 4) : ''}]</code> ${c.key2 ? '' : html`<span class="muted small">(${addrLink(c.key)})</span>`}
+        : html`${c.token === 'Seogilwon' ? '서길원' : '친구 코인'} 프로그램 ${addrLink(c.address)} 의 저장공간<br><code>${c.var}[${short(c.key, 4, 4)}${c.key2 ? '][' + short(c.key2, 4, 4) : ''}]</code> ${c.key2 ? '' : html`<span class="muted small">(${addrLink(c.key)})</span>`}
           <br><span class="hash small" title="${c.slot}">칸 ${short(c.slot, 6, 6)}</span>`}</td>
       <td class="num">${fmt(before)}</td><td class="num">${fmt(after)}</td>
       <td class="num" style="color:var(${delta === null || delta === 0n ? '--muted' : delta < 0n ? '--bad' : '--ok'})">${delta === null ? '' : (delta > 0n ? '+' : '') + (c.kind === 'eth' ? E().formatEther(delta) : fmtNum(delta))}</td>
@@ -189,6 +235,7 @@ export default {
       const logs = receipt ? await Promise.all(receipt.logs.map(async (l) => ({ l, d: await decodeLog(l) }))) : [];
       const type = Number(t.type);
       const newAddr = await newAddressCard(t, receipt);
+      const relayed = await relayCard(t, dec, receipt);
 
       render(view, html`
         <div class="page-head"><div>
@@ -223,7 +270,7 @@ export default {
               ['총 수수료', html`<b>${eth(fee)}</b>`, `사용 가스 ${fmtNum(gasUsed)} × 가스 가격 ${fmtNum(eff)} wei`],
               ['소각', eth(burned), `기본 수수료 ${fmtNum(baseFee)} wei × 가스 — 영구 삭제`],
               ['검증자 몫', eth(tip), html`이 블록을 만든 검증자 ${addrLink(block.miner)}`],
-            ])}<p class="small muted">수수료는 원화코인이 아니라 이더리움 자체 코인(${sym})으로 냅니다. 세폴리아에서는 가치가 없는 시험용입니다.</p>` : html`<span class="muted">블록에 담기면 계산됩니다</span>`}
+            ])}<p class="small muted">수수료는 서길원이 아니라 이더리움 자체 코인(${sym})으로 냅니다. 세폴리아에서는 가치가 없는 시험용입니다.</p>` : html`<span class="muted">블록에 담기면 계산됩니다</span>`}
           </div>
         </div>
 
@@ -235,6 +282,7 @@ export default {
           <details style="margin-top:8px"><summary class="small muted">입력 데이터 원본 (${fmtNum((t.input.length - 2) / 2)} 바이트)</summary><pre class="code">${t.input.length > 4000 ? t.input.slice(0, 4000) + '…' : t.input}</pre></details>
         </div>
 
+        ${relayed}
         ${newAddr}
         ${rawFieldsCard(t, dec, sym)}
         <div class="card"><div class="card-head"><h2>장부 변화 — 이 거래로 바뀐 칸</h2><span class="muted small">거래 직전 블록과 직후 블록의 같은 칸을 비교</span></div>

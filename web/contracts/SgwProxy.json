@@ -1,0 +1,154 @@
+{
+  "contractName": "SgwProxy",
+  "sourceFile": "SgwProxy.sol",
+  "source": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\n/// @title SgwProxy - 서길원의 '고정 주소' (업그레이드 가능 프록시, EIP-1967)\n/// @notice 이용자·지갑·이더스캔은 이 주소를 서길원으로 안다. 이 컨트랙트는 거의 아무 기능도 없고,\n///         들어온 호출을 '구현' 컨트랙트의 코드로 실행(delegatecall)하되 데이터는 자기 저장공간에 둔다.\n///         관리자(admin)가 upgradeTo 로 구현 주소를 바꾸면, 주소와 잔액은 그대로인 채 규칙이 바뀐다.\n///         구현 주소·관리자 주소는 EIP-1967 이 정한 고정 칸에 저장되어, 이더스캔 등이 자동으로 알아본다.\ncontract SgwProxy {\n    // keccak256(\"eip1967.proxy.implementation\") - 1\n    bytes32 private constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;\n    // keccak256(\"eip1967.proxy.admin\") - 1\n    bytes32 private constant ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;\n\n    event Upgraded(address indexed implementation);\n    event AdminChanged(address previousAdmin, address newAdmin);\n\n    constructor(address implementation_, address admin_, bytes memory initData) {\n        _setImplementation(implementation_);\n        _setAdmin(admin_);\n        emit AdminChanged(address(0), admin_);\n        if (initData.length > 0) {\n            (bool ok, bytes memory ret) = implementation_.delegatecall(initData);\n            if (!ok) assembly { revert(add(ret, 32), mload(ret)) }\n        }\n    }\n\n    function proxyAdmin() external view returns (address a) { assembly { a := sload(ADMIN_SLOT) } }\n    function proxyImplementation() external view returns (address i) { assembly { i := sload(IMPLEMENTATION_SLOT) } }\n\n    /// @notice 관리자만: 서길원의 규칙(구현)을 새 코드로 교체\n    function upgradeTo(address newImplementation) external {\n        require(msg.sender == _admin(), \"proxy: caller is not the admin\");\n        _setImplementation(newImplementation);\n    }\n\n    function changeProxyAdmin(address newAdmin) external {\n        require(msg.sender == _admin(), \"proxy: caller is not the admin\");\n        require(newAdmin != address(0), \"proxy: new admin is the zero address\");\n        emit AdminChanged(_admin(), newAdmin);\n        _setAdmin(newAdmin);\n    }\n\n    function _admin() private view returns (address a) { assembly { a := sload(ADMIN_SLOT) } }\n\n    function _setAdmin(address a) private { assembly { sstore(ADMIN_SLOT, a) } }\n\n    function _setImplementation(address i) private {\n        require(i.code.length > 0, \"proxy: implementation is not a contract\");\n        assembly { sstore(IMPLEMENTATION_SLOT, i) }\n        emit Upgraded(i);\n    }\n\n    fallback() external payable {\n        assembly {\n            let impl := sload(IMPLEMENTATION_SLOT)\n            calldatacopy(0, 0, calldatasize())\n            let ok := delegatecall(gas(), impl, 0, calldatasize(), 0, 0)\n            returndatacopy(0, 0, returndatasize())\n            switch ok\n            case 0 { revert(0, returndatasize()) }\n            default { return(0, returndatasize()) }\n        }\n    }\n\n    receive() external payable {\n        revert(\"proxy: does not accept ETH\");\n    }\n}\n",
+  "compiler": {
+    "version": "0.8.30+commit.73712a01.Emscripten.clang",
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "viaIR": true,
+      "evmVersion": "cancun"
+    }
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "implementation_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "admin_",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "initData",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "previousAdmin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "Upgraded",
+      "type": "event"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "changeProxyAdmin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxyAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "a",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxyImplementation",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "i",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "name": "upgradeTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "bytecode": "0x6080604052346100a95761066c80380380610019816100c1565b92833981016060828203126100a957610031826100eb565b9161003e602082016100eb565b604082015190916001600160401b0382116100a957019282601f850112156100a957835161007361006e826100ff565b6100c1565b93818552602082870101116100a9576020815f928261009a98018388015e8501015261013f565b6040516103df908161028d8239f35b5f80fd5b634e487b7160e01b5f52604160045260245ffd5b6040519190601f01601f191682016001600160401b038111838210176100e657604052565b6100ad565b51906001600160a01b03821682036100a957565b6001600160401b0381116100e657601f01601f191660200190565b3d1561013a573d9061012e61006e836100ff565b9182523d5f602084013e565b606090565b9190823b15610237577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc8390556040517f7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f918190610205906001600160a01b0387167fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a26101ed817fb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d610355565b5f83526001600160a01b031660208301526040820190565b0390a180518061021457505050565b5f926020849301905af461022661011a565b901561022f5750565b602081519101fd5b60405162461bcd60e51b815260206004820152602760248201527f70726f78793a20696d706c656d656e746174696f6e206973206e6f74206120636044820152661bdb9d1c9858dd60ca1b6064820152608490fdfe60806040526004361015610018575b3661034b57610306565b5f3560e01c80630c870f91146100575780633659cfe6146100525780633e47158c1461004d57639f712f2f0361000e576101d4565b6101a0565b6100c2565b3461009c575f36600319011261009c577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc546001600160a01b03166080908152602090f35b5f80fd5b602090600319011261009c576004356001600160a01b038116810361009c5790565b3461009c576100d0366100a0565b6100f160018060a01b035f51602061038a5f395f51905f52541633146102ba565b803b1561014b577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc8190556001600160a01b03167fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a2005b60405162461bcd60e51b815260206004820152602760248201527f70726f78793a20696d706c656d656e746174696f6e206973206e6f74206120636044820152661bdb9d1c9858dd60ca1b6064820152608490fd5b3461009c575f36600319011261009c575f51602061038a5f395f51905f52546040516001600160a01b039091168152602090f35b3461009c576101e2366100a0565b5f51602061038a5f395f51905f525490610206336001600160a01b038416146102ba565b6001600160a01b0381161561026957604080516001600160a01b0393841681529282166020840152610267927f7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f9190a15f51602061038a5f395f51905f5255565b005b60405162461bcd60e51b8152602060048201526024808201527f70726f78793a206e65772061646d696e20697320746865207a65726f206164646044820152637265737360e01b6064820152608490fd5b156102c157565b60405162461bcd60e51b815260206004820152601e60248201527f70726f78793a2063616c6c6572206973206e6f74207468652061646d696e00006044820152606490fd5b60405162461bcd60e51b815260206004820152601a60248201527f70726f78793a20646f6573206e6f7420616363657074204554480000000000006044820152606490fd5b5f807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc54368280378136915af43d5f803e15610385573d5ff35b3d5ffdfeb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103a26469706673582212208ef6f6337f74438f029377f49059eb164838c4da3bc06707733aff11f5ea571164736f6c634300081e0033",
+  "deployedBytecode": "0x60806040526004361015610018575b3661034b57610306565b5f3560e01c80630c870f91146100575780633659cfe6146100525780633e47158c1461004d57639f712f2f0361000e576101d4565b6101a0565b6100c2565b3461009c575f36600319011261009c577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc546001600160a01b03166080908152602090f35b5f80fd5b602090600319011261009c576004356001600160a01b038116810361009c5790565b3461009c576100d0366100a0565b6100f160018060a01b035f51602061038a5f395f51905f52541633146102ba565b803b1561014b577f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc8190556001600160a01b03167fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b5f80a2005b60405162461bcd60e51b815260206004820152602760248201527f70726f78793a20696d706c656d656e746174696f6e206973206e6f74206120636044820152661bdb9d1c9858dd60ca1b6064820152608490fd5b3461009c575f36600319011261009c575f51602061038a5f395f51905f52546040516001600160a01b039091168152602090f35b3461009c576101e2366100a0565b5f51602061038a5f395f51905f525490610206336001600160a01b038416146102ba565b6001600160a01b0381161561026957604080516001600160a01b0393841681529282166020840152610267927f7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f9190a15f51602061038a5f395f51905f5255565b005b60405162461bcd60e51b8152602060048201526024808201527f70726f78793a206e65772061646d696e20697320746865207a65726f206164646044820152637265737360e01b6064820152608490fd5b156102c157565b60405162461bcd60e51b815260206004820152601e60248201527f70726f78793a2063616c6c6572206973206e6f74207468652061646d696e00006044820152606490fd5b60405162461bcd60e51b815260206004820152601a60248201527f70726f78793a20646f6573206e6f7420616363657074204554480000000000006044820152606490fd5b5f807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc54368280378136915af43d5f803e15610385573d5ff35b3d5ffdfeb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103a26469706673582212208ef6f6337f74438f029377f49059eb164838c4da3bc06707733aff11f5ea571164736f6c634300081e0033",
+  "immutableReferences": {},
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  },
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "title": "SgwProxy - 서길원의 '고정 주소' (업그레이드 가능 프록시, EIP-1967)",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "upgradeTo(address)": {
+        "notice": "관리자만: 서길원의 규칙(구현)을 새 코드로 교체"
+      }
+    },
+    "notice": "이용자·지갑·이더스캔은 이 주소를 서길원으로 안다. 이 컨트랙트는 거의 아무 기능도 없고,         들어온 호출을 '구현' 컨트랙트의 코드로 실행(delegatecall)하되 데이터는 자기 저장공간에 둔다.         관리자(admin)가 upgradeTo 로 구현 주소를 바꾸면, 주소와 잔액은 그대로인 채 규칙이 바뀐다.         구현 주소·관리자 주소는 EIP-1967 이 정한 고정 칸에 저장되어, 이더스캔 등이 자동으로 알아본다.",
+    "version": 1
+  }
+}

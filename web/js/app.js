@@ -1,6 +1,6 @@
 // 앱 진입점: 설정 읽기 → 공개 노드 연결 → MetaMask 상태 확인 → 주소(#/...)에 맞는 화면 표시
 import { MODULES } from './modules/index.js';
-import { chain, initChain, startPolling, onBlock, onStatus, onRpc, wallet, onWallet, initWallet, connectWallet, switchNetwork, rpc } from './core/chain.js';
+import { chain, initChain, startPolling, onBlock, onStatus, onRpc, wallet, onWallet, initWallet, connectWallet, switchNetwork, rpc, loadMembers } from './core/chain.js';
 import { html, render, $, esc, short, toast, fmtNum, setExplorer, errMsg } from './core/ui.js';
 
 const E = () => globalThis.ethers;
@@ -37,6 +37,8 @@ async function route() {
   view.replaceChildren(page);
   window.scrollTo(0, 0);
   try {
+    // 다른 사람이(대납 포함) 가입했을 수 있으니 화면을 옮길 때마다 명부를 다시 읽음 (호출 1번)
+    if (chain.ready) await loadMembers().catch(() => {});
     const m = (await mod.load()).default;
     document.title = `${m.title || mod.title} · ${chain.cfg?.appName || '청라더헤븐'}`;
     const myScope = scope;

@@ -1,7 +1,7 @@
 import { chain, rpc, getContract, getEvents, artifact, labelOf, blockTime } from '../core/chain.js';
 import { html, render, $, fmtNum, fmtUnits, timeAgo, short, txLink, addrLink, explain, kv, verifyBox, tag, stat, copyBtn, won, scan, raw } from '../core/ui.js';
 import { verifyRuntimeCode } from '../core/verify.js';
-import { identify } from '../core/abi.js';
+import { identify, implementationOf } from '../core/abi.js';
 import { readAccount, slotOf, mappingSlot, EMPTY_CODE_HASH, EMPTY_STORAGE } from '../core/ledger.js';
 import { rlpFields, fieldsTable, hexBlock, proofNodesView, disassemblyView } from '../core/raw.js';
 
@@ -37,7 +37,7 @@ function anatomyCard(address, r, codeLen) {
         ${proofNodesView(p.accountProof, E().keccak256(address))}
         <details><summary class="small muted">노드가 준 원본 JSON (eth_getProof)</summary><pre class="code">${JSON.stringify(p, null, 2)}</pre></details>
       </details>`;
-    })()}    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>원화코인 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 원화코인과 무관'}). 원화코인 잔액은 아래처럼 <b>원화코인 프로그램의 저장공간</b>에 적혀 있습니다.</p>` : ''}
+    })()}    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>서길원 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 서길원과 무관'}). 서길원 잔액은 아래처럼 <b>서길원 프로그램(프록시)의 저장공간</b>에 적혀 있습니다.</p>` : ''}
   </div>`;
 }
 
@@ -112,18 +112,33 @@ export default {
         <div id="anatomy" class="loading">장부 칸 읽는 중…</div>
         ${art ? verifyBox(v.ok, `소스 검증: 이 주소의 기계어 = ${art.sourceFile} 를 컴파일한 결과 (${v.reason})`, html`체인 위 코드 ${fmtNum(codeLen)}바이트를 이 거래소의 공개 소스로 다시 컴파일한 결과와 한 바이트씩 비교했습니다. codeHash = keccak256(이 기계어) 입니다.`)
           : html`<div class="verify bad"><div class="vtitle">이 거래소의 소스와 일치하지 않는 컨트랙트입니다</div></div>`}
+        <div id="proxy"></div>
         <div id="layout"></div>
         <div class="card"><div class="card-head"><h2>기계어 — 장부의 code 칸에 실제로 들어 있는 것</h2><span class="muted small">eth_getCode 원본을 명령어로 풀어 봄</span></div>
           ${disassemblyView(code, art ? Object.fromEntries(new (E().Interface)(art.abi).fragments.filter((f) => f.type === 'function').map((f) => [f.selector, f.name])) : {})}
           <details><summary class="small muted">기계어 원본 바이트 (${fmtNum(codeLen)}바이트)</summary>${hexBlock(code, 32768)}</details></div>        ${art ? html`<details class="card"><summary><b>소스 코드</b> <span class="muted small">체인에 올라간 것은 이 글이 아니라 기계어입니다</span></summary><pre class="code nowrap" style="max-height:520px">${art.source}</pre></details>` : ''}`);
       const r = await readAccount(address);
       render($('#anatomy', view), anatomyCard(address, r, codeLen));
-      if (art) render($('#layout', view), await storageLayoutCard(address, art));
+      if (name === 'SgwProxy') {
+        // 프록시: 데이터는 여기, 규칙(코드)은 구현 컨트랙트에. EIP-1967 고정 칸에서 구현·관리자 주소를 읽는다
+        const IMPL = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc', ADMIN = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
+        const [ri, ra] = await Promise.all([rpc('eth_getStorageAt', [address, IMPL, 'latest']), rpc('eth_getStorageAt', [address, ADMIN, 'latest'])]);
+        const impl = await implementationOf(address);
+        const implName = await identify(impl);
+        render($('#proxy', view), html`<div class="card"><div class="card-head"><h2>프록시 구조 — 주소와 규칙의 분리</h2><span class="small muted">EIP-1967</span></div>
+          <p class="small">이 주소의 기계어(${fmtNum(codeLen)}바이트)는 거의 아무 기능이 없습니다. 들어온 호출을 아래 <b>구현</b>의 코드로 실행하되, 잔액 같은 데이터는 <b>이 주소의 저장공간</b>에 둡니다. 관리자가 구현 주소만 바꾸면 같은 주소·같은 잔액에 새 규칙이 적용됩니다.</p>
+          ${kv([
+            ['구현 주소 칸', html`<span class="hash small">${IMPL}</span><br>값 <span class="hash small">${ri}</span>`, html`= ${addrLink(impl)} ${tag(implName || '?', 'info')}`],
+            ['관리자 주소 칸', html`<span class="hash small">${ADMIN}</span><br>값 <span class="hash small">${ra}</span>`, html`= ${addrLink(E().getAddress('0x' + ra.slice(26)))}`],
+          ])}
+          <p class="small muted">이 두 칸 번호는 keccak256("eip1967.proxy.implementation")−1 처럼 일부러 정한 값이라, 구현 쪽 변수와 겹치지 않고 이더스캔도 자동으로 알아봅니다 (이더스캔의 Read as Proxy).</p></div>`);
+        if (implName) render($('#layout', view), await storageLayoutCard(address, await artifact(implName)));
+      } else if (art) render($('#layout', view), await storageLayoutCard(address, art));
       return;
     }
 
-    const [coin, members, market, factory] = await Promise.all(['WonCoin', 'Members', 'Market', 'CoinFactory'].map((n) => getContract(n)));
-    const [krw, nick, frozen] = await Promise.all([coin.balanceOf(address), members.nameOf(address), coin.frozen(address)]);
+    const [coin, members, market, factory] = await Promise.all(['Seogilwon', 'Members', 'Market', 'CoinFactory'].map((n) => getContract(n)));
+    const [krw, nick, frozen] = await Promise.all([coin.balanceOf(address), members.nameOf(address), coin.isBlacklisted(address)]);
     const topic = E().zeroPadValue(address, 32);
     const [outs, ins, memos, shops, coinsMade] = await Promise.all([
       getEvents(coin, 'Transfer', [topic]), getEvents(coin, 'Transfer', [null, topic]), getEvents(coin, 'Memo'),
@@ -134,18 +149,18 @@ export default {
     const isIssuer = address.toLowerCase() === chain.cfg.issuer?.toLowerCase();
 
     render(view, html`
-      <div class="page-head"><div><h1>${nick || '이름 없는 지갑'} ${isIssuer ? tag('발행자', 'info') : ''} ${frozen ? tag('동결된 계좌', 'bad') : ''}</h1>
+      <div class="page-head"><div><h1>${nick || '이름 없는 지갑'} ${isIssuer ? tag('발행자', 'info') : ''} ${frozen ? tag('블랙리스트', 'bad') : ''}</h1>
         <div class="sub hash">${address} ${copyBtn(address)}</div></div><span class="spacer"></span>
         <a class="btn" href="#/send/${encodeURIComponent(nick || address)}">이 사람에게 송금</a>${scan('address', address, '이더스캔 ↗')}</div>
       <div class="stats">
-        ${stat('원화코인', won(krw), '원화코인 프로그램 장부의 값')}
+        ${stat('서길원', won(krw), '서길원 프로그램 장부의 값')}
         ${stat('상점 · 만든 코인', `${shops.length} · ${coinsMade.length}`)}
       </div>
       <div id="anatomy" class="loading">장부 칸 읽는 중…</div>
-      <div id="tokencell" class="loading">원화코인 칸 찾는 중…</div>
+      <div id="tokencell" class="loading">서길원 칸 찾는 중…</div>
       ${shops.length || coinsMade.length ? html`<div class="card"><div class="row">${shops.map(({ ev }) => html`<a class="pill" href="#/shop/s/${ev.args.shopId}">${ev.args.name}</a>`)}
         ${coinsMade.map(({ ev }) => html`<a class="pill" href="#/coins">${ev.args.symbol}</a>`)}</div></div>` : ''}
-      <div class="card"><div class="card-head"><h2>원화코인 입출금 ${fmtNum(list.length)}건</h2>${scan('token', `${chain.cfg.contracts.WonCoin}?a=${address}`, '이더스캔 토큰 내역 ↗')}</div>
+      <div class="card"><div class="card-head"><h2>서길원 입출금 ${fmtNum(list.length)}건</h2>${scan('token', `${chain.cfg.contracts.Seogilwon}?a=${address}`, '이더스캔 토큰 내역 ↗')}</div>
         <div id="hist"></div></div>
       ${explain('감독 관점: 가명이지만 완전 공개', html`<p>주소 하나만 알면 그 주소의 모든 입출금·상대방·시점을 누구나 볼 수 있습니다. 실명 정보는 없지만,
         거래소 입출금 등에서 주소와 실명이 한 번 연결되면 과거 내역 전체가 드러납니다.</p>`, { kind: 'sup' })}
@@ -156,8 +171,8 @@ export default {
       render($('#anatomy', view), anatomyCard(address, r, 0));
     })().catch((e) => render($('#anatomy', view), html`<div class="card muted">계정 칸을 읽지 못했습니다: ${e.message}</div>`));
     (async () => {
-      render($('#tokencell', view), await tokenCellCard(address, chain.cfg.contracts.WonCoin, 'WonCoin', 'sgw'));
-    })().catch((e) => render($('#tokencell', view), html`<div class="card muted">원화코인 칸을 읽지 못했습니다: ${e.message}</div>`));
+      render($('#tokencell', view), await tokenCellCard(address, chain.cfg.contracts.Seogilwon, 'SeogilwonV1', 'sgw'));
+    })().catch((e) => render($('#tokencell', view), html`<div class="card muted">서길원 칸을 읽지 못했습니다: ${e.message}</div>`));
 
     const rows = await Promise.all(list.slice(0, 200).map(async ({ ev, log }) => {
       const out = ev.args.from.toLowerCase() === address.toLowerCase();

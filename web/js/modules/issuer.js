@@ -1,39 +1,46 @@
-import { chain, wallet, rpc, getContract, getEvents, writable, track, artifact, requireWallet, waitReceipt, saveLocalDeployment, loadMembers, blockTime } from '../core/chain.js';
-import { html, render, $, $$, fmtNum, fmtUnits, fmtTime, timeAgo, short, txLink, addrLink, explain, tag, kv, stat, busy, toast, won, scan, copyBtn } from '../core/ui.js';
+import { chain, wallet, rpc, getContract, getEvents, writable, track, artifact, requireWallet, waitReceipt, saveLocalDeployment, blockTime } from '../core/chain.js';
+import { html, render, $, fmtNum, timeAgo, short, txLink, addrLink, explain, tag, kv, stat, busy, toast, won, scan, copyBtn } from '../core/ui.js';
 import { resolveRecipient } from './send.js';
 import { createAddressSteps } from '../core/ledger.js';
 
 const E = () => globalThis.ethers;
-const ROLES = { MINTER: '발행 담당', COMPLIANCE: '준법 담당', PAUSER: '정지 담당' };
-const ROLE_OF = Object.fromEntries(Object.keys(ROLES).map((k) => [E().id(k), k]));
+const TOKEN = { name: '서길원', symbol: 'sgw', currency: 'KRW', decimals: 0 };
+const INITIAL_ALLOWANCE = 100_000_000n;
 
 function describe(ev) {
   const a = ev.args;
   switch (ev.name) {
-    case 'RequestCreated': return html`${tag(a.redeem ? '환불 요청' : '충전 요청', 'warn')} ${addrLink(a.user)} ${won(a.amount)} — “${a.memo}”`;
-    case 'RequestResolved': return html`${tag(a.approved ? '승인' : '거절', a.approved ? 'ok' : 'bad')} ${addrLink(a.by)} 가 ${addrLink(a.user)} 의 ${a.redeem ? '환불' : '충전'} ${won(a.amount)} ${a.approved ? '승인' : '거절'} ${a.note ? `— “${a.note}”` : ''}`;
-    case 'Minted': return html`${tag('발행', 'ok')} ${addrLink(a.to)} 에게 <b>${won(a.amount)}</b> 새로 발행 ${a.memo ? `— “${a.memo}”` : ''}`;
-    case 'Burned': return html`${tag('소각', 'warn')} ${addrLink(a.from)} 의 <b>${won(a.amount)}</b> 소각 ${a.memo ? `— “${a.memo}”` : ''}`;
-    case 'Frozen': return html`${tag('동결', 'bad')} ${addrLink(a.account)} — “${a.reason}”`;
-    case 'Unfrozen': return html`${tag('동결 해제', 'ok')} ${addrLink(a.account)} — “${a.reason}”`;
-    case 'FrozenFundsWiped': return html`${tag('강제 소각', 'bad')} ${addrLink(a.account)} 의 <b>${won(a.amount)}</b> — “${a.reason}”`;
-    case 'Paused': return html`${tag('전체 정지', 'bad')} — “${a.reason}”`;
-    case 'Unpaused': return html`${tag('정지 해제', 'ok')} — “${a.reason}”`;
-    case 'RoleChanged': return html`${tag('권한', 'info')} ${addrLink(a.account)} ${ROLES[ROLE_OF[a.role]] || short(a.role)} ${a.granted ? '부여' : '회수'}`;
-    case 'ReserveAttested': return html`${tag('준비금 공시', 'info')} 준비자산 ${won(a.reserve)} / 당시 발행량 ${won(a.supplyAtTime)} — 근거: ${a.evidence}`;
-    case 'OwnershipTransferred': return html`${tag('소유권', 'info')} ${addrLink(a.previousOwner)} → ${addrLink(a.newOwner)}`;
+    case 'Mint': return html`${tag('발행', 'ok')} ${addrLink(a.minter)} 가 ${addrLink(a.to)} 에게 <b>${won(a.amount)}</b> ${a.memo ? `— “${a.memo}”` : ''}`;
+    case 'Burn': return html`${tag('소각', 'warn')} ${addrLink(a.burner)} 가 <b>${won(a.amount)}</b> 소각 ${a.memo ? `— “${a.memo}”` : ''}`;
+    case 'MinterConfigured': return html`${tag('발행 한도', 'info')} ${addrLink(a.minter)} 한도 ${won(a.minterAllowedAmount)} 로 설정`;
+    case 'MinterRemoved': return html`${tag('발행 담당 해제', 'warn')} ${addrLink(a.oldMinter)}`;
+    case 'Blacklisted': return html`${tag('블랙리스트', 'bad')} ${addrLink(a.account)} — “${a.reason}”`;
+    case 'UnBlacklisted': return html`${tag('블랙리스트 해제', 'ok')} ${addrLink(a.account)} — “${a.reason}”`;
+    case 'BlackFundsDestroyed': return html`${tag('자금 소각', 'bad')} ${addrLink(a.account)} 의 <b>${won(a.amount)}</b> — “${a.reason}”`;
+    case 'Pause': return html`${tag('전체 정지', 'bad')} — “${a.reason}”`;
+    case 'Unpause': return html`${tag('정지 해제', 'ok')} — “${a.reason}”`;
+    case 'ReserveAttested': return html`${tag('준비금 공시', 'info')} ${won(a.reserve)} / 당시 발행 ${won(a.supplyAtTime)} — ${a.evidence}`;
+    case 'OwnershipTransferred': return html`${tag('소유자', 'info')} ${addrLink(a.previousOwner)} → ${addrLink(a.newOwner)}`;
+    case 'MasterMinterChanged': return html`${tag('발행 총괄 교체', 'info')} → ${addrLink(a.newMasterMinter)}`;
+    case 'PauserChanged': return html`${tag('정지 담당 교체', 'info')} → ${addrLink(a.newPauser)}`;
+    case 'BlacklisterChanged': return html`${tag('블랙리스트 담당 교체', 'info')} → ${addrLink(a.newBlacklister)}`;
+    case 'Upgraded': return html`${tag('업그레이드', 'bad')} 구현이 ${addrLink(a.implementation)} 로 바뀜`;
+    case 'AdminChanged': return html`${tag('프록시 관리자', 'info')} ${addrLink(a.previousAdmin)} → ${addrLink(a.newAdmin)}`;
+    case 'Clawback': return html`${tag('강제 회수(V2)', 'bad')} ${addrLink(a.from)} 에서 <b>${won(a.amount)}</b> — “${a.reason}”`;
+    case 'AuthorizationUsed': return html`${tag('서명 사용')} ${addrLink(a.authorizer)} 의 서명 하나가 쓰임`;
     default: return null;
   }
 }
 
-// ───────── 처음 설정: 발행자가 MetaMask 로 컨트랙트 4개 배포 ─────────
+// ───────── 처음 설정: MetaMask 로 6개 배포 + 발행 담당 지정 ─────────
 const SETUP = [
+  { name: 'Forwarder', ko: '대납 중계', desc: '서명만으로 가입·상점·코인 만들기를 하게 해 주는 중계기 (ERC-2771)' },
+  { name: 'SeogilwonV1', ko: '서길원 구현 V1', desc: '서길원의 규칙(코드). 직접 쓰지 않고 프록시가 빌려 씀' },
+  { name: 'SgwProxy', key: 'Seogilwon', ko: '서길원 (프록시)', desc: '모두가 쓰는 서길원의 고정 주소. 잔액이 저장되는 곳' },
   { name: 'Members', ko: '명부', desc: '닉네임 가입' },
-  { name: 'WonCoin', ko: '원화코인', desc: '충전·환불·동결·준비금 공시' },
-  { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (원화코인 주소를 알아야 해서 원화코인 다음)' },
+  { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (서길원 주소가 필요)' },
   { name: 'CoinFactory', ko: '코인공장', desc: '누구나 내 코인 만들기' },
 ];
-
 
 async function renderSetup(view) {
   const me = wallet.address;
@@ -41,61 +48,70 @@ async function renderSetup(view) {
   const predicted = SETUP.map((s, i) => ({ ...s, nonce: nonce0 + i, ...createAddressSteps(me, nonce0 + i) }));
   const ex = predicted[0];
   render(view, html`
-    <div class="page-head"><div><h1>처음 설정 (발행자 전용)</h1><div class="sub">${chain.cfg.network.name} 장부에 거래소 프로그램 4개를 올립니다</div></div></div>
+    <div class="page-head"><div><h1>처음 설정 (발행자 전용)</h1><div class="sub">${chain.cfg.network.name} 장부에 거래소 프로그램 6개를 올리고, 자신을 발행 담당으로 지정합니다</div></div></div>
     <div class="card">
-      <p>지금 MetaMask 에 연결된 주소 ${addrLink(me)} 가 <b>발행자</b>가 됩니다. 원화코인의 발행·동결 권한이 이 주소에 생깁니다.</p>
-      <h3>배포하면 생길 주소 — 미리 계산해 둔 예측</h3>
-      <div class="table-wrap"><table><thead><tr><th>순서</th><th>프로그램</th><th class="num">내 nonce</th><th>예측 주소</th><th>실제</th></tr></thead><tbody>
+      <p>지금 연결된 주소 ${addrLink(me)} 가 서길원의 <b>소유자·발행 총괄·정지 담당·블랙리스트 담당·프록시 관리자</b>가 됩니다 (나중에 각각 다른 사람에게 넘길 수 있음).</p>
+      <h3>배포하면 생길 주소 — 미리 계산한 예측</h3>
+      <div class="table-wrap"><table><thead><tr><th>순서</th><th>프로그램</th><th class="num">nonce</th><th>예측 주소</th><th>실제</th></tr></thead><tbody>
         ${predicted.map((p, i) => html`<tr id="row-${p.name}"><td>${i + 1}</td><td><b>${p.ko}</b> <span class="muted small">${p.name}</span><br><span class="small muted">${p.desc}</span></td>
           <td class="num">${p.nonce}</td><td class="hash small">${p.address}</td><td class="st small muted">배포 전</td></tr>`)}
+        <tr id="row-minter"><td>7</td><td><b>발행 담당 지정</b><br><span class="small muted">발행 총괄(나)이 나에게 발행 한도 ${won(INITIAL_ALLOWANCE)} 를 부여 (배포가 아니라 일반 거래)</span></td><td class="num">${nonce0 + 6}</td><td></td><td class="st small muted">대기</td></tr>
       </tbody></table></div>
       ${explain('주소는 어떻게 미리 알 수 있나', html`
-        <p>프로그램도 지갑처럼 장부에 칸 하나(주소)를 받습니다. 그 번지수는 제비뽑기가 아니라 <b>배포한 사람의 주소와 그 사람의 nonce(지금까지 보낸 거래 수)</b>로 계산됩니다.
-          지금 이 지갑의 nonce 는 <b>${nonce0}</b> 이라, 다음 거래 4개의 번호는 ${nonce0}, ${nonce0 + 1}, ${nonce0 + 2}, ${nonce0 + 3} 입니다.</p>
-        <p>예: 첫 번째(명부)</p>
-        <pre class="code">① RLP 로 묶기  [ ${me}, ${ex.nonce} ]
-   = ${ex.rlp}
-② keccak256    = ${ex.hash}
-③ 끝 20바이트  = 0x${ex.hash.slice(26)}
-   → 주소 ${ex.address}</pre>
-        <p class="small muted">그래서 배포 전에 이 지갑으로 다른 거래를 하면 nonce 가 밀려 주소도 바뀝니다. 같은 사람이 같은 nonce 로 두 번 배포할 수는 없으니 주소가 겹칠 일도 없습니다.</p>`, { open: true })}
-      <p class="small muted">MetaMask 확인 창이 4번 뜹니다. 하나 승인할 때마다 블록에 담길 때까지 10~20초 기다리고, 그동안 이 탭을 닫지 마세요.</p>
+        <p>프로그램 주소는 <b>배포한 사람의 주소와 그 사람의 nonce</b>로 계산됩니다. 이 지갑의 nonce 는 지금 <b>${nonce0}</b> 이라 다음 배포 6개의 번호는 ${nonce0} ~ ${nonce0 + 5} 입니다.</p>
+        <pre class="code">① RLP [ ${me}, ${ex.nonce} ] = ${ex.rlp}
+② keccak256  = ${ex.hash}
+③ 끝 20바이트 → ${ex.address}</pre>
+        <p class="small muted">배포 전에 이 지갑으로 다른 거래를 하면 nonce 가 밀려 주소도 바뀝니다.</p>`, { open: true })}
+      <p class="small muted">MetaMask 확인 창이 7번 뜹니다(배포 6 + 발행 담당 지정 1). 하나 승인할 때마다 블록에 담길 때까지 10~20초 기다리고, 그동안 이 탭을 닫지 마세요.</p>
       <button class="btn btn-primary" id="deploy">MetaMask 로 배포 시작</button>
       <div id="out" style="margin-top:12px"></div>
     </div>`);
-  const setRow = (name, txt, ok) => {
-    const td = $(`#row-${name} .st`, view);
-    if (td) { td.className = `st small ${ok === true ? '' : 'muted'}`; td.innerHTML = String(txt); }
-  };
+  const setRow = (name, txt) => { const td = $(`#row-${name} .st`, view); if (td) { td.className = 'st small'; td.innerHTML = String(txt); } };
   $('#deploy', view).addEventListener('click', (ev) => busy(ev.target, async () => {
     const signer = requireWallet();
-    const nowNonce = Number(await rpc('eth_getTransactionCount', [wallet.address, 'latest']));
-    if (nowNonce !== nonce0 || wallet.address !== me) throw new Error('예측한 뒤에 지갑 상태(nonce·계정)가 바뀌었습니다. 새로고침해서 예측을 다시 계산하세요.');
+    if (Number(await rpc('eth_getTransactionCount', [wallet.address, 'latest'])) !== nonce0 || wallet.address !== me) throw new Error('예측 뒤에 지갑 상태가 바뀌었습니다. 새로고침하세요.');
     const deployBlock = Number(await rpc('eth_blockNumber'));
     const out = {};
+    let cur = predicted[0].name;
+    try {
     for (const p of predicted) {
+      cur = p.name;
       const a = await artifact(p.name);
+      let args = [];
+      if (p.name === 'SgwProxy') args = [out.SeogilwonV1, me, new (E().Interface)((await artifact('SeogilwonV1')).abi).encodeFunctionData('initialize', [TOKEN.name, TOKEN.symbol, TOKEN.currency, TOKEN.decimals, me])];
+      if (['Members', 'CoinFactory'].includes(p.name)) args = [out.Forwarder];
+      if (p.name === 'Market') args = [out.Seogilwon, out.Forwarder];
       setRow(p.name, 'MetaMask 에서 확인을 눌러 주세요…');
-      const args = p.name === 'Market' ? [out.WonCoin] : [];
       const c = await new (E().ContractFactory)(a.abi, a.bytecode, signer).deploy(...args);
       const h = c.deploymentTransaction().hash;
       setRow(p.name, html`블록에 담기는 중… <a href="#/tx/${h}" target="_blank">${short(h, 6, 4)}</a>`);
       const r = await waitReceipt(h);
       if (r.status !== 1) { setRow(p.name, tag('실패', 'bad')); throw new Error(`${p.ko} 배포 실패`); }
-      out[p.name] = E().getAddress(r.contractAddress);
-      const hit = out[p.name] === p.address;
-      setRow(p.name, html`<span class="hash">${out[p.name]}</span><br>${hit ? tag('✓ 예측과 같음', 'ok') : tag('✗ 예측과 다름', 'bad')} <a href="#/tx/${h}">배포 거래 해부 →</a>`, true);
+      const addr = E().getAddress(r.contractAddress);
+      out[p.key || p.name] = addr;
+      setRow(p.name, html`<span class="hash">${addr}</span><br>${addr === p.address ? tag('✓ 예측과 같음', 'ok') : tag('✗ 예측과 다름', 'bad')}`);
     }
-    const d = { chainId: chain.cfg.network.chainId, issuer: wallet.address, contracts: out, deployBlock };
-    saveLocalDeployment(d);
-    const json = JSON.stringify({ issuer: d.issuer, contracts: d.contracts, deployBlock: d.deployBlock }, null, 2);
-    const allHit = predicted.every((p) => out[p.name] === p.address);
-    render($('#out', view), html`<div class="verify ok"><div class="vtitle">${tag('완료', 'ok')} 배포가 끝났습니다 ${allHit ? tag('주소 4개 모두 예측과 일치', 'ok') : ''}</div>
-      <p class="small">이 브라우저에서는 바로 사용할 수 있습니다. <b>다른 사람들도 쓰려면</b> Claude 에게 “배포 끝났어”라고 말해 주세요. 주소를 웹사이트 설정 파일에 반영해 드립니다.</p>
+    cur = 'minter';
+    setRow('minter', 'MetaMask 에서 확인을 눌러 주세요…');
+    const tok = new (E().Contract)(out.Seogilwon, (await artifact('SeogilwonV1')).abi, signer);
+    const rm = await track(tok.configureMinter(me, INITIAL_ALLOWANCE), '발행 담당 지정');
+    setRow('minter', rm.status === 1 ? tag('완료', 'ok') : tag('실패', 'bad'));
+    } catch (e) {
+      // 거절·오류 시 멈춘 칸에 표시. 이미 올라간 프로그램은 그대로 남으므로 다시 하려면 새로고침(새 nonce 로 다시 예측)
+      setRow(cur, html`${tag('중단', 'bad')}<br><span class="small">${e.shortMessage || e.message}</span><br><span class="small muted">새로고침하면 처음부터 다시 예측·배포합니다</span>`);
+      throw e;
+    }
+    saveLocalDeployment({ chainId: chain.cfg.network.chainId, issuer: me, contracts: out, deployBlock });
+    const json = JSON.stringify({ issuer: me, contracts: out, deployBlock }, null, 2);
+    render($('#out', view), html`<div class="verify ok"><div class="vtitle">${tag('완료', 'ok')} 거래소가 열렸습니다</div>
+      <p class="small">이 브라우저에서는 바로 쓸 수 있습니다. <b>다른 사람들도 쓰려면</b> Claude 에게 “배포 끝났어”라고 말해 주세요. 주소를 사이트 설정에 반영합니다.</p>
       <details><summary class="small">설정 정보 (참고용)</summary><pre class="code">${json}</pre>${copyBtn(json)}</details></div>
       <p><button class="btn btn-primary" onclick="location.reload()">거래소 열기</button></p>`);
   }));
 }
+
+// ───────── 발행자 · 감독 콘솔 ─────────
 export default {
   title: '발행자 · 감독',
   async render(view, params, app) {
@@ -103,135 +119,168 @@ export default {
       if (!wallet.address) return render(view, html`<div class="card"><h2>처음 설정</h2><p>거래소 컨트랙트가 아직 없습니다. 발행자가 될 사람이 오른쪽 위 <b>MetaMask 연결</b> 후 이 화면에서 배포하세요.</p></div>`);
       return renderSetup(view);
     }
-    const coin = await getContract('WonCoin');
+    const token = await getContract('Seogilwon');
     const market = await getContract('Market');
     const members = await getContract('Members');
-    const me = wallet.address;
 
     const draw = async () => {
-      const [supply, paused, owner, nReq, nAtt, nMembers, nShops, nProducts, nOrders] = await Promise.all([
-        coin.totalSupply(), coin.paused(), coin.owner(), coin.requestCount(), coin.attestationCount(), members.count(), market.shopCount(), market.productCount(), market.orderCount(),
+      const me = wallet.address;
+      const [supply, paused, owner, masterMinter, pauser, blacklister, admin, impl, ver, nAtt, nMembers, nShops, nOrders] = await Promise.all([
+        token.totalSupply(), token.paused(), token.owner(), token.masterMinter(), token.pauser(), token.blacklister(), token.proxyAdmin(), token.proxyImplementation(), token.implementationVersion(),
+        token.attestationCount(), members.count(), market.shopCount(), market.orderCount(),
       ]);
-      const myRoles = me ? (await Promise.all(Object.keys(ROLES).map(async (r) => ((await coin.hasRole(E().id(r), me)) ? r : null)))).filter(Boolean) : [];
-      const isOwner = me && owner.toLowerCase() === me.toLowerCase();
-      const all = await getEvents(coin);
+      const is = (a) => !!me && a.toLowerCase() === me.toLowerCase();
+      const [myMinter, myAllowance] = me ? await Promise.all([token.isMinter(me), token.minterAllowance(me)]) : [false, 0n];
+      const all = await getEvents(token);
       const purchases = await getEvents(market, 'Purchased');
-      const volume = purchases.reduce((a, { ev }) => a + ev.args.total, 0n);
-      const last = nAtt > 0n ? await coin.attestations(nAtt - 1n) : null;
+      const volume = purchases.reduce((s, { ev }) => s + ev.args.total, 0n);
+      const last = nAtt > 0n ? await token.attestations(nAtt - 1n) : null;
       const cover = last && supply > 0n ? Number((last.reserve * 10000n) / supply) / 100 : null;
 
-      // 대기 요청
-      const pendingIds = [];
-      for (let i = Number(nReq) - 1; i >= 0 && pendingIds.length < 50; i--) {
-        const r = await coin.requests(i);
-        if (Number(r.status) === 0) pendingIds.push({ id: i, r });
-      }
-      // 회원별 잔액 (Transfer 재생)
-      const bal = new Map();
-      const frozen = new Set();
-      for (const { ev } of all) {
+      // 이벤트 재생: 잔액, 블랙리스트, 발행 담당, 상환 접수
+      const bal = new Map(); const black = new Set(); const minterSet = new Set(); const redemptions = [];
+      for (const { ev, log } of all) {
+        const a = ev.args;
         if (ev.name === 'Transfer') {
-          const { from, to, value } = ev.args;
-          if (from !== E().ZeroAddress) bal.set(from, (bal.get(from) || 0n) - value);
-          if (to !== E().ZeroAddress) bal.set(to, (bal.get(to) || 0n) + value);
+          if (a.from !== E().ZeroAddress) bal.set(a.from, (bal.get(a.from) || 0n) - a.value);
+          if (a.to !== E().ZeroAddress) bal.set(a.to, (bal.get(a.to) || 0n) + a.value);
+          if (a.to.toLowerCase() === chain.cfg.issuer.toLowerCase() && a.from !== E().ZeroAddress) redemptions.push({ ev, log });
         }
-        if (ev.name === 'Frozen') frozen.add(ev.args.account);
-        if (ev.name === 'Unfrozen') frozen.delete(ev.args.account);
+        if (ev.name === 'Blacklisted') black.add(a.account);
+        if (ev.name === 'UnBlacklisted') black.delete(a.account);
+        if (ev.name === 'MinterConfigured') minterSet.add(a.minter);
       }
-      const holders = [...bal.entries()].filter(([a, v]) => v > 0n && a.toLowerCase() !== chain.cfg.contracts.WonCoin.toLowerCase()).sort((a, b) => (b[1] > a[1] ? 1 : -1));
-      const escrow = bal.get(E().getAddress(chain.cfg.contracts.WonCoin)) || 0n;
-      const can = (r) => myRoles.includes(r);
+      const minters = (await Promise.all([...minterSet].map(async (m) => ({ m, on: await token.isMinter(m), allow: await token.minterAllowance(m) })))).filter((x) => x.on);
+      const holders = [...bal.entries()].filter(([, v]) => v > 0n).sort((x, y) => (y[1] > x[1] ? 1 : -1));
+      const sumBal = holders.reduce((s, [, v]) => s + v, 0n);
+      const myRoles = [[owner, '소유자'], [masterMinter, '발행 총괄'], [pauser, '정지 담당'], [blacklister, '블랙리스트 담당'], [admin, '프록시 관리자']].filter(([a]) => is(a));
 
       render(view, html`
-        <div class="page-head"><div><h1>발행자 · 감독</h1><div class="sub">원화코인 컨트랙트 ${addrLink(chain.cfg.contracts.WonCoin)} ${scan('token', chain.cfg.contracts.WonCoin)}</div></div></div>
-        ${me ? html`<p class="small">내 권한: ${isOwner ? tag('소유자', 'info') : ''} ${myRoles.map((r) => tag(ROLES[r], 'info'))} ${!isOwner && !myRoles.length ? html`<span class="muted">없음 — 이 화면을 볼 수는 있지만 조치 버튼은 거절됩니다</span>` : ''}</p>` : ''}
+        <div class="page-head"><div><h1>발행자 · 감독</h1><div class="sub">서길원 ${addrLink(chain.cfg.contracts.Seogilwon)} ${scan('token', chain.cfg.contracts.Seogilwon)} · 구현 V${ver}</div></div></div>
+        ${me ? html`<p class="small">내 역할: ${myRoles.map(([, l]) => tag(l, 'info'))} ${myMinter ? tag(`발행 담당 (남은 한도 ${won(myAllowance)})`, 'info') : ''}
+          ${!myRoles.length && !myMinter ? html`<span class="muted">없음 — 볼 수는 있지만 조치는 컨트랙트가 거절합니다</span>` : ''}</p>` : ''}
 
         <div class="stats">
-          ${stat('총 발행량', won(supply), paused ? '⛔ 전체 거래 정지 중' : '정상 유통')}
-          ${stat('최근 준비금 비율', cover == null ? '공시 없음' : cover.toFixed(1) + '%', last ? `${won(last.reserve)} / 현재 발행 ${won(supply)}` : '')}
-          ${stat('회원', fmtNum(nMembers) + '명', `원화 보유 ${holders.length}명`)}
-          ${stat('상점 · 상품', `${fmtNum(nShops)} · ${fmtNum(nProducts)}`, `주문 ${fmtNum(nOrders)}건, 거래액 ${won(volume)}`)}
-          ${stat('대기 중 요청', fmtNum(pendingIds.length) + '건', escrow ? `환불 보관 중 ${won(escrow)}` : '')}
+          ${stat('총 발행량', won(supply), paused ? '전체 거래 정지 중' : '정상 유통')}
+          ${stat('최근 준비금 비율', cover == null ? '공시 없음' : cover.toFixed(1) + '%', last ? `${won(last.reserve)} 공시` : '')}
+          ${stat('회원', fmtNum(nMembers) + '명', `보유자 ${holders.length}명`)}
+          ${stat('상점 · 주문', `${fmtNum(nShops)} · ${fmtNum(nOrders)}`, `거래액 ${won(volume)}`)}
         </div>
 
-        <div class="card"><div class="card-head"><h2>대기 중인 충전·환불 요청</h2></div>
-          ${pendingIds.length ? html`<div class="table-wrap"><table><thead><tr><th>#</th><th>요청자</th><th>종류</th><th class="num">금액</th><th>메모</th><th>시각</th><th></th></tr></thead><tbody>
-            ${pendingIds.map(({ id, r }) => html`<tr data-req="${id}"><td>${id}</td><td>${addrLink(r.user)}</td><td>${r.redeem ? tag('환불', 'warn') : tag('충전', 'info')}</td><td class="num">${won(r.amount)}</td>
-              <td class="small">${r.memo}</td><td class="small">${timeAgo(Number(r.time))}</td>
-              <td><div class="row"><button class="btn small btn-primary" data-ok ${can('MINTER') ? '' : 'disabled'}>승인</button><button class="btn small" data-no ${can('MINTER') ? '' : 'disabled'}>거절</button></div></td></tr>`)}
-          </tbody></table></div>` : html`<div class="empty">대기 중인 요청이 없습니다</div>`}
-          <p class="small muted">충전 승인 = 그 금액만큼 새 코인 발행. 실제 스테이블코인이라면 은행 입금을 확인한 뒤에만 승인해야 합니다. 그 확인은 블록체인 밖의 일이라 코드가 강제하지 못합니다.</p>
-        </div>
-
-        <div class="grid grid-2">
-          <div class="card"><h2>발행 · 공시 ${tag(ROLES.MINTER)}</h2>
-            <div class="field"><label>직접 발행 (요청 없이)</label><div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1"><input id="mAmt" type="number" min="1" placeholder="sgw" style="width:110px"><button class="btn small" id="mint">발행</button></div></div>
-            <div class="field"><label>준비금 공시 — 실제로는 은행 잔고 증명이 필요합니다</label><div class="row"><input id="aAmt" type="number" min="0" placeholder="준비자산(sgw)" style="width:140px"><input id="aEv" placeholder="근거 (예: 10월 감사보고서)" style="flex:1"><button class="btn small" id="attest">공시</button></div></div>
-          </div>
-          <div class="card"><h2>준법 조치 ${tag(ROLES.COMPLIANCE)} ${tag(ROLES.PAUSER)}</h2>
-            <div class="field"><label>대상 계좌와 사유</label><div class="row"><input id="cTo" placeholder="닉네임/주소" style="flex:1"><input id="cWhy" placeholder="사유 (기록에 남음)" style="flex:1"></div></div>
-            <div class="row"><button class="btn small btn-danger" id="freeze">동결</button><button class="btn small" id="unfreeze">동결 해제</button><button class="btn small btn-danger" id="wipe">동결자산 강제소각</button>
-              <span class="spacer"></span>${paused ? html`<button class="btn small" id="unpause">전체 정지 해제</button>` : html`<button class="btn small btn-danger" id="pause">전체 거래 정지</button>`}</div>
-          </div>
+        <div class="card"><div class="card-head"><h2>역할 구조</h2><span class="small muted">USDC 와 같은 방식 — 권한을 쪼개 한 사람이 모든 걸 하지 못하게</span></div>
+          ${kv([
+            ['소유자 (owner)', addrLink(owner, { full: true }), '역할 담당자 임명·교체'],
+            ['발행 총괄 (masterMinter)', addrLink(masterMinter, { full: true }), '발행 담당자 지정과 각자의 발행 한도 결정, 준비금 공시'],
+            ['발행 담당 (minter)', minters.length ? html`${minters.map((x) => html`<div>${addrLink(x.m)} — 남은 한도 ${won(x.allow)}</div>`)}` : '없음', '한도 안에서만 발행, 상환 받은 코인 소각'],
+            ['정지 담당 (pauser)', addrLink(pauser, { full: true }), '전체 거래 일시정지'],
+            ['블랙리스트 담당', addrLink(blacklister, { full: true }), '계좌 차단, 차단 계좌 자금 소각'],
+            ['프록시 관리자 (admin)', addrLink(admin, { full: true }), html`서길원의 <b>규칙 자체를 교체</b>할 수 있는 권한 — 가장 강력함`],
+            ['현재 구현', html`${addrLink(impl, { full: true })} ${tag('V' + ver, ver === '2' ? 'warn' : 'info')}`, '프록시가 지금 빌려 쓰는 코드'],
+          ])}
         </div>
 
         <div class="grid grid-2">
+          <div class="card"><h2>입금 신고 → 발행</h2>
+            <p class="small">참여자가 보낸 <b>입금 신고 링크</b>를 열면 서명을 검증하고 [입금 확인 → 발행] 버튼이 나옵니다. 링크를 아래에 붙여넣어도 됩니다.</p>
+            <div class="row"><input id="lnk" placeholder="https://… #/relay/…" style="flex:1;min-width:160px"><button class="btn small" id="openLnk">열기</button></div>
+            <div class="field" style="margin-top:12px"><label>직접 발행 (신고 링크 없이)</label>
+              <div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><input id="mAmt" type="number" min="1" placeholder="sgw" style="width:110px"><input id="mMemo" placeholder="메모" style="width:120px"><button class="btn small btn-primary" id="mint" ${myMinter ? '' : 'disabled'}>발행</button></div>
+              <span class="small muted">발행 담당 한도 안에서만 됩니다. ${myMinter ? `남은 한도 ${won(myAllowance)}` : '지금 지갑은 발행 담당이 아닙니다.'}</span></div>
+          </div>
+          <div class="card"><h2>상환 처리</h2>
+            <p class="small muted">참여자가 발행사 주소로 보낸 서길원 = 상환 요청. 원화를 돌려준 뒤(블록체인 밖) 그만큼 소각합니다.</p>
+            ${redemptions.length ? html`<div class="table-wrap" style="max-height:180px;overflow:auto"><table><tbody>${redemptions.slice().reverse().slice(0, 10).map(({ ev, log }) => html`<tr><td>${addrLink(ev.args.from)}</td><td class="num">${won(ev.args.value)}</td><td>${txLink(log.transactionHash)}</td></tr>`)}</tbody></table></div>` : html`<div class="empty small">접수된 상환 없음</div>`}
+            <div class="row" style="margin-top:8px"><input id="bAmt" type="number" min="1" placeholder="소각할 sgw" style="width:130px"><input id="bMemo" placeholder="메모 (예: 앨리스 상환)" style="flex:1;min-width:120px"><button class="btn small" id="burn" ${myMinter ? '' : 'disabled'}>소각</button></div>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card"><h2>발행 담당자 · 한도 ${tag('발행 총괄')}</h2>
+            <div class="row"><input id="kTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><input id="kAmt" type="number" min="0" placeholder="한도 sgw" style="width:120px"></div>
+            <div class="row" style="margin-top:6px"><button class="btn small" id="cfgMinter">지정·한도 설정</button><button class="btn small btn-danger" id="rmMinter">해제</button></div>
+            <p class="small muted">실제 USDC 도 발행 담당자마다 한도를 두어, 한 담당자의 키가 털려도 피해가 한도 안에 머물게 합니다.</p>
+          </div>
+          <div class="card"><h2>블랙리스트 · 정지</h2>
+            <div class="row"><input id="xTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><input id="xWhy" placeholder="사유 (공개 기록)" style="flex:1;min-width:120px"></div>
+            <div class="row" style="margin-top:6px"><button class="btn small btn-danger" id="bl">블랙리스트</button><button class="btn small" id="ubl">해제</button><button class="btn small btn-danger" id="destroy">차단 자금 소각</button>
+              <span class="spacer"></span>${paused ? html`<button class="btn small" id="unpause">정지 해제</button>` : html`<button class="btn small btn-danger" id="pause">전체 거래 정지</button>`}</div>
+            ${black.size ? html`<p class="small" style="margin-top:8px">차단 중: ${[...black].map((a) => html`${addrLink(a)} `)}</p>` : ''}
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card"><h2>준비금 공시 ${tag('발행 총괄')}</h2>
+            <div class="row"><input id="aAmt" type="number" min="0" placeholder="준비자산 (sgw)" style="width:140px"><input id="aEv" placeholder="근거 (예: 10월 감사보고서)" style="flex:1;min-width:120px"><button class="btn small" id="attest">공시</button></div>
+            <p class="small muted">실제로는 회계법인이 매달 보고서로 냅니다. 블록체인 공시는 ‘주장’일 뿐이라 실제 잔고를 보장하지 않습니다.</p>
+          </div>
+          <div class="card"><h2>업그레이드 ${tag('프록시 관리자')}</h2>
+            <p class="small">지금 구현: <b>V${ver}</b> ${addrLink(impl)}. ${ver === '1' ? html`V2 로 바꾸면 같은 주소·같은 잔액 위에 <b>블랙리스트 없이도 소유자가 아무 계좌에서나 코인을 회수하는 권한(clawback)</b>이 생깁니다.` : html`V2 가 적용돼 <b>강제 회수(clawback)</b> 권한이 생겼습니다.`}</p>
+            ${ver === '1' ? html`<button class="btn small btn-danger" id="upgrade" ${is(admin) ? '' : 'disabled'}>V2 배포 후 업그레이드</button>`
+              : html`<div class="row"><input id="cbFrom" placeholder="회수할 계좌" style="flex:1;min-width:120px"><input id="cbAmt" type="number" min="1" placeholder="sgw" style="width:100px"><input id="cbWhy" placeholder="사유" style="width:110px"><button class="btn small btn-danger" id="clawback">강제 회수</button></div>`}
+            <p class="small muted">감독 관점: 이용자는 아무것도 바꾸지 않았는데 발행사가 규칙을 바꿀 수 있습니다. 업그레이드 가능 토큰의 핵심 위험이며, 기록은 감사 로그와 이더스캔에 남습니다.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card"><h2>역할 넘기기 ${tag('소유자')}</h2>
+            <div class="row"><input id="rTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><select id="rRole">
+              <option value="updateMasterMinter">발행 총괄</option><option value="updatePauser">정지 담당</option><option value="updateBlacklister">블랙리스트 담당</option>
+              <option value="transferOwnership">소유자</option><option value="changeProxyAdmin">프록시 관리자</option></select><button class="btn small" id="role">넘기기</button></div>
+            <p class="small muted">한 사람이 모든 역할을 쥐면 그 MetaMask 하나가 털릴 때 무제한 발행·회수가 가능합니다. 역할을 나눠 보세요.</p>
+          </div>
           <div class="card"><h2>수수료용 ${chain.cfg.network.currency.symbol} 나눠주기</h2>
-            <p class="small muted">새 참여자는 가스비가 없으면 아무것도 못 합니다. 한 줄에 하나씩 닉네임이나 주소. (이건 원화코인이 아니라 이더리움 자체 코인입니다)</p>
-            <textarea id="gasTo" rows="3" placeholder="철수&#10;0xAbc..."></textarea>
-            <div class="row" style="margin-top:6px"><input id="gasAmt" value="0.01" style="width:90px"> ${chain.cfg.network.currency.symbol}씩 <button class="btn small btn-primary" id="gas">보내기</button></div>
-            <div id="gasOut" class="small"></div>
-          </div>
-          <div class="card"><h2>권한 관리 ${tag('소유자')}</h2>
-            <div class="row"><input id="rTo" placeholder="닉네임/주소" style="flex:1"><select id="rRole">${Object.entries(ROLES).map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select></div>
-            <div class="row" style="margin-top:6px"><button class="btn small" id="grant">부여</button><button class="btn small" id="revoke">회수</button></div>
-            <p class="small muted">한 사람이 모든 권한을 쥐면 그 MetaMask 하나만 털려도 무제한 발행이 가능합니다. 권한을 나눠 보세요.</p>
+            <p class="small muted">대납 방식이면 참여자에게 ETH 가 필요 없지만, 직접 거래해 보고 싶은 참여자에게 조금 보내 줄 수 있습니다.</p>
+            <textarea id="gasTo" rows="2" placeholder="닉네임 또는 주소, 한 줄에 하나"></textarea>
+            <div class="row" style="margin-top:6px"><input id="gasAmt" value="0.005" style="width:90px"> ${chain.cfg.network.currency.symbol}씩 <button class="btn small" id="gas">보내기</button></div>
           </div>
         </div>
 
         <div class="grid grid-2">
-          <div class="card"><h2>보유 현황</h2><div class="table-wrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>회원</th><th class="num">잔액</th><th class="num">비중</th><th></th></tr></thead><tbody>
-            ${holders.map(([a, v]) => html`<tr><td>${addrLink(a)}</td><td class="num">${won(v)}</td><td class="num">${supply ? (Number((v * 1000n) / supply) / 10).toFixed(1) : 0}%</td><td>${frozen.has(a) ? tag('동결', 'bad') : ''}</td></tr>`)}
-          </tbody></table></div><p class="small muted">Transfer 이벤트를 처음부터 다시 계산한 결과입니다. 합계 ${won(holders.reduce((s, [, v]) => s + v, 0n) + escrow)} = 총 발행량 ${won(supply)} ${holders.reduce((s, [, v]) => s + v, 0n) + escrow === supply ? '✓' : '✗'}</p></div>
+          <div class="card"><h2>보유 현황</h2><div class="table-wrap" style="max-height:360px;overflow:auto"><table><thead><tr><th>계좌</th><th class="num">잔액</th><th class="num">비중</th><th></th></tr></thead><tbody>
+            ${holders.map(([a, v]) => html`<tr><td>${addrLink(a)}</td><td class="num">${won(v)}</td><td class="num">${supply ? (Number((v * 1000n) / supply) / 10).toFixed(1) : 0}%</td><td>${black.has(a) ? tag('차단', 'bad') : ''}</td></tr>`)}
+          </tbody></table></div><p class="small muted">Transfer 기록을 처음부터 다시 더한 결과: 합계 ${won(sumBal)} ${sumBal === supply ? '= 총 발행량 ✓' : '≠ 총 발행량 ✗'}</p></div>
           <div class="card"><h2>감사 로그</h2><div class="table-wrap" style="max-height:360px;overflow:auto"><table><tbody>
             ${(await Promise.all(all.slice().reverse().map(async ({ ev, log }) => { const d = describe(ev); return d ? html`<tr><td class="small">${timeAgo(await blockTime(log.blockNumber))}</td><td>${d}</td><td>${txLink(log.transactionHash)}</td></tr>` : ''; })))}
-          </tbody></table></div><p class="small muted">발행자의 모든 조치가 이벤트로 남아 누구나 감사할 수 있습니다. ${scan('address', chain.cfg.contracts.WonCoin, '이더스캔 이벤트 탭')}에서도 같은 기록을 볼 수 있습니다.</p></div>
+          </tbody></table></div></div>
         </div>
-        ${explain('감독 관점 체크포인트', html`<ul>
-          <li><b>발행 통제</b>: 충전 승인은 은행 입금 확인을 전제로 하지만, 코드는 그걸 확인할 방법이 없습니다. 발행자 내부통제·외부감사가 실제 안전장치입니다.</li>
-          <li><b>준비금 공시는 ‘주장’</b>입니다. 비율이 100% 여도 실제 자산이 있다는 보장은 없습니다.</li>
-          <li><b>동결·강제소각</b>은 범죄 대응 수단이지만 남용하면 재산권 침해입니다. 사유가 공개 기록으로 남는다는 점이 기존 금융과 다릅니다.</li>
-          <li><b>공개성</b>: 회원들의 잔액·거래가 전 세계에 공개됩니다(${chain.cfg.network.name} 은 공개 블록체인). 닉네임으로 가명 처리될 뿐입니다.</li>
-        </ul>`, { kind: 'sup' })}
       `);
 
-      const target = (id) => resolveRecipient($(id, view).value);
-      const amt = (id) => { const v = $(id, view).value.trim(); if (!/^\d+$/.test(v)) throw new Error('금액은 0 이상 정수'); return BigInt(v); };
-      const act = (id, label, fn) => $(id, view)?.addEventListener('click', (ev) => busy(ev.target, async () => { await track(fn(await writable(coin)), label); await draw(); }));
-      for (const row of $$('[data-req]', view)) {
-        const id = Number(row.dataset.req);
-        row.querySelector('[data-ok]').addEventListener('click', (ev) => busy(ev.target, async () => { await track((await writable(coin)).approveRequest(id, '확인 완료'), `요청 #${id} 승인`); await draw(); }));
-        row.querySelector('[data-no]').addEventListener('click', (ev) => busy(ev.target, async () => { await track((await writable(coin)).rejectRequest(id, '반려'), `요청 #${id} 거절`); await draw(); }));
-      }
-      act('#mint', '직접 발행', (c) => c.mint(target('#mTo'), amt('#mAmt'), '발행자 직접 발행'));
-      act('#attest', '준비금 공시', (c) => c.attestReserve(amt('#aAmt'), $('#aEv', view).value.trim()));
-      act('#freeze', '동결', (c) => c.freeze(target('#cTo'), $('#cWhy', view).value.trim()));
-      act('#unfreeze', '동결 해제', (c) => c.unfreeze(target('#cTo'), $('#cWhy', view).value.trim()));
-      act('#wipe', '강제 소각', (c) => c.wipeFrozenFunds(target('#cTo'), $('#cWhy', view).value.trim()));
-      act('#pause', '전체 정지', (c) => c.pause($('#cWhy', view).value.trim() || '긴급 정지'));
-      act('#unpause', '정지 해제', (c) => c.unpause($('#cWhy', view).value.trim() || '정상화'));
-      act('#grant', '권한 부여', (c) => c.setRole(E().id($('#rRole', view).value), target('#rTo'), true));
-      act('#revoke', '권한 회수', (c) => c.setRole(E().id($('#rRole', view).value), target('#rTo'), false));
+      const who = (id) => resolveRecipient($(id, view).value);
+      const num = (id) => { const v = $(id, view).value.trim(); if (!/^\d+$/.test(v)) throw new Error('수량은 0 이상 정수'); return BigInt(v); };
+      const why = (id, d) => $(id, view).value.trim() || d;
+      const act = (id, label, fn) => $(id, view)?.addEventListener('click', (ev) => busy(ev.target, async () => { await track(fn(await writable(token)), label); await draw(); }));
+      $('#openLnk', view).addEventListener('click', () => { const v = $('#lnk', view).value.trim(); const i = v.indexOf('#/relay/'); if (i < 0) return toast('#/relay/ 가 들어 있는 링크를 붙여넣으세요', 'bad'); location.hash = v.slice(i); });
+      act('#mint', '발행', (c) => c.mint(who('#mTo'), num('#mAmt'), why('#mMemo', '발행자 직접 발행')));
+      act('#burn', '소각', (c) => c.burn(num('#bAmt'), why('#bMemo', '상환 처리')));
+      act('#cfgMinter', '발행 한도 설정', (c) => c.configureMinter(who('#kTo'), num('#kAmt')));
+      act('#rmMinter', '발행 담당 해제', (c) => c.removeMinter(who('#kTo')));
+      act('#bl', '블랙리스트', (c) => c.blacklist(who('#xTo'), why('#xWhy', '사유 미기재')));
+      act('#ubl', '블랙리스트 해제', (c) => c.unBlacklist(who('#xTo'), why('#xWhy', '사유 미기재')));
+      act('#destroy', '차단 자금 소각', (c) => c.destroyBlackFunds(who('#xTo'), why('#xWhy', '사유 미기재')));
+      act('#pause', '전체 정지', (c) => c.pause(why('#xWhy', '긴급 정지')));
+      act('#unpause', '정지 해제', (c) => c.unpause(why('#xWhy', '정상화')));
+      act('#attest', '준비금 공시', (c) => c.attestReserve(num('#aAmt'), why('#aEv', '근거 미기재')));
+      act('#clawback', '강제 회수', (c) => c.clawback(who('#cbFrom'), num('#cbAmt'), why('#cbWhy', 'V2 권한 시험')));
+      act('#role', '역할 넘기기', (c) => c[$('#rRole', view).value](who('#rTo')));
+      $('#upgrade', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
+        const signer = requireWallet();
+        const v2 = await artifact('SeogilwonV2');
+        toast('1단계: V2 구현 배포 — MetaMask 에서 승인하세요');
+        const c = await new (E().ContractFactory)(v2.abi, v2.bytecode, signer).deploy();
+        const r = await waitReceipt(c.deploymentTransaction().hash);
+        if (r.status !== 1) throw new Error('V2 배포 실패');
+        toast('2단계: 프록시가 V2 를 가리키도록 교체 — MetaMask 에서 승인하세요');
+        await track((await writable(token)).upgradeTo(r.contractAddress), '업그레이드');
+        await draw();
+      }));
       $('#gas', view).addEventListener('click', (ev) => busy(ev.target, async () => {
         const signer = requireWallet();
         const value = E().parseEther($('#gasAmt', view).value || '0');
         for (const line of $('#gasTo', view).value.split('\n').map((s) => s.trim()).filter(Boolean)) {
-          const to = resolveRecipient(line);
-          const tx = await signer.sendTransaction({ to, value });
-          $('#gasOut', view).insertAdjacentHTML('beforeend', `<div>→ ${line} · <a href="#/tx/${tx.hash}">${tx.hash.slice(0, 12)}…</a></div>`);
+          const tx = await signer.sendTransaction({ to: resolveRecipient(line), value });
           await waitReceipt(tx.hash);
+          toast(`${line} 에게 보냄`, 'ok');
         }
-        toast('나눠주기 완료', 'ok');
       }));
     };
     await draw();

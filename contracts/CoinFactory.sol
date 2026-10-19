@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./Forwarder.sol";
+
 /// @title FriendCoin - 참여자 누구나 만드는 '내 코인' (ERC-20, 소수점 0)
 /// @notice 만든 사람(발행자)만 추가 발행할 수 있고, 보유자는 자기 코인을 소각할 수 있다.
-///         준비자산·충전 승인·동결 같은 통제 장치가 없다는 점이 공식 원화코인(WonCoin)과 다르다.
-contract FriendCoin {
+///         준비자산·발행 한도·블랙리스트·업그레이드 같은 장치가 없다는 점이 서길원과 다르다.
+///         대납 중계(Forwarder)를 통하면 서명만으로 보내고 발행할 수 있다.
+contract FriendCoin is ERC2771Context {
     string public name;
     string public symbol;
     uint8 public constant decimals = 0;
@@ -18,7 +21,9 @@ contract FriendCoin {
     event Memo(address indexed from, address indexed to, uint256 value, string memo);
     event Minted(address indexed to, uint256 amount, string memo);
 
-    constructor(string memory name_, string memory symbol_, address issuer_, uint256 initialSupply) {
+    constructor(string memory name_, string memory symbol_, address issuer_, uint256 initialSupply, address forwarder_)
+        ERC2771Context(forwarder_)
+    {
         name = name_;
         symbol = symbol_;
         issuer = issuer_;
@@ -26,39 +31,41 @@ contract FriendCoin {
     }
 
     function mint(address to, uint256 amount, string calldata memo) external {
-        require(msg.sender == issuer, "FriendCoin: issuer only");
+        require(_msgSender() == issuer, "FriendCoin: issuer only");
         _mint(to, amount, memo);
     }
 
     function burn(uint256 amount) external {
-        require(balanceOf[msg.sender] >= amount, "FriendCoin: balance too low");
-        balanceOf[msg.sender] -= amount;
+        address who = _msgSender();
+        require(balanceOf[who] >= amount, "FriendCoin: balance too low");
+        balanceOf[who] -= amount;
         totalSupply -= amount;
-        emit Transfer(msg.sender, address(0), amount);
+        emit Transfer(who, address(0), amount);
     }
 
     function transfer(address to, uint256 value) external returns (bool) {
-        _transfer(msg.sender, to, value);
+        _transfer(_msgSender(), to, value);
         return true;
     }
 
     function transferWithMemo(address to, uint256 value, string calldata memo) external returns (bool) {
         require(bytes(memo).length <= 200, "FriendCoin: memo too long");
-        _transfer(msg.sender, to, value);
-        emit Memo(msg.sender, to, value, memo);
+        _transfer(_msgSender(), to, value);
+        emit Memo(_msgSender(), to, value, memo);
         return true;
     }
 
     function approve(address spender, uint256 value) external returns (bool) {
-        allowance[msg.sender][spender] = value;
-        emit Approval(msg.sender, spender, value);
+        allowance[_msgSender()][spender] = value;
+        emit Approval(_msgSender(), spender, value);
         return true;
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        uint256 a = allowance[from][msg.sender];
+        address spender = _msgSender();
+        uint256 a = allowance[from][spender];
         require(a >= value, "FriendCoin: allowance too low");
-        if (a != type(uint256).max) allowance[from][msg.sender] = a - value;
+        if (a != type(uint256).max) allowance[from][spender] = a - value;
         _transfer(from, to, value);
         return true;
     }
@@ -80,19 +87,22 @@ contract FriendCoin {
 }
 
 /// @title CoinFactory - 버튼 하나로 '내 코인'을 만드는 공장
-/// @notice 컨트랙트가 다른 컨트랙트를 만드는(CREATE) 모습을 보여준다.
+/// @notice 컨트랙트가 다른 컨트랙트를 만드는(CREATE) 모습을 보여준다. 대납 중계로 서명만으로도 만들 수 있다.
 ///         감독 관점: 신원 확인 없이, 몇 초 만에, 아무 이름으로나 코인이 생긴다.
-contract CoinFactory {
+contract CoinFactory is ERC2771Context {
     address[] private _coins;
 
     event CoinCreated(address indexed coin, address indexed issuer, string name, string symbol, uint256 initialSupply);
 
+    constructor(address forwarder_) ERC2771Context(forwarder_) {}
+
     function createCoin(string calldata name_, string calldata symbol_, uint256 initialSupply) external returns (address coin) {
         require(bytes(name_).length >= 1 && bytes(name_).length <= 40, "Factory: name 1-40 bytes");
         require(bytes(symbol_).length >= 1 && bytes(symbol_).length <= 11, "Factory: symbol 1-11 bytes");
-        coin = address(new FriendCoin(name_, symbol_, msg.sender, initialSupply));
+        address who = _msgSender();
+        coin = address(new FriendCoin(name_, symbol_, who, initialSupply, trustedForwarder));
         _coins.push(coin);
-        emit CoinCreated(coin, msg.sender, name_, symbol_, initialSupply);
+        emit CoinCreated(coin, who, name_, symbol_, initialSupply);
     }
 
     function coinCount() external view returns (uint256) {

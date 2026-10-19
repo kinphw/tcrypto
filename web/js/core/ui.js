@@ -124,6 +124,19 @@ export function lineChart(points, { yFmt = (v) => v, xFmt = (v) => v } = {}) {
   </svg>`);
 }
 
+// ── 대화상자 ──
+export function openModal(content) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-wrap';
+  wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><button class="modal-x" aria-label="닫기">✕</button><div class="modal-body"></div></div>`;
+  wrap.querySelector('.modal-body').innerHTML = piece(content);
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.modal-x').addEventListener('click', close);
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  return close;
+}
+
 // ── 알림 ──
 export function toast(msg, kind = '') {
   const el = document.createElement('div');

@@ -7,22 +7,26 @@ const E = () => globalThis.ethers;
 function line(c, ev) {
   const a = ev.args;
   switch (`${c}.${ev.name}`) {
-    case 'Members.Joined': return html`${tag('가입')} ${addrLink(a.who)} 님이 ${a.memberNo}번째 회원이 됨`;
-    case 'WonCoin.RequestCreated': return html`${tag(a.redeem ? '환불 요청' : '충전 요청', 'warn')} ${addrLink(a.user)} ${won(a.amount)}`;
-    case 'WonCoin.RequestResolved': return html`${tag(a.approved ? '승인' : '거절', a.approved ? 'ok' : 'bad')} ${addrLink(a.user)} 의 ${a.redeem ? '환불' : '충전'} ${won(a.amount)}`;
-    case 'WonCoin.Minted': return html`${tag('발행', 'ok')} ${addrLink(a.to)} 에게 ${won(a.amount)} 새로 발행`;
-    case 'WonCoin.Burned': return html`${tag('소각', 'warn')} ${won(a.amount)} 소멸`;
-    case 'WonCoin.Memo': return html`${tag('송금', 'info')} ${addrLink(a.from)} → ${addrLink(a.to)} ${won(a.value)} “${a.memo}”`;
-    case 'WonCoin.Frozen': return html`${tag('동결', 'bad')} ${addrLink(a.account)} — ${a.reason}`;
-    case 'WonCoin.Unfrozen': return html`${tag('동결 해제', 'ok')} ${addrLink(a.account)}`;
-    case 'WonCoin.FrozenFundsWiped': return html`${tag('강제 소각', 'bad')} ${addrLink(a.account)} ${won(a.amount)}`;
-    case 'WonCoin.Paused': return html`${tag('전체 정지', 'bad')} ${a.reason}`;
-    case 'WonCoin.Unpaused': return html`${tag('정지 해제', 'ok')}`;
-    case 'WonCoin.ReserveAttested': return html`${tag('준비금 공시', 'info')} ${won(a.reserve)}`;
-    case 'Market.ShopOpened': return html`${tag('개점', 'info')} ${addrLink(a.owner)} 의 <a href="#/shop/s/${a.shopId}">${a.name}</a>`;
-    case 'Market.ProductListed': return html`${tag('상품 등록')} <a href="#/shop/p/${a.productId}">${a.name}</a> ${won(a.price)}`;
-    case 'Market.Purchased': return html`${tag('구매', 'ok')} ${addrLink(a.buyer)} → ${addrLink(a.seller)} <a href="#/shop/p/${a.productId}">상품 #${a.productId}</a> × ${a.quantity} = ${won(a.total)}`;
-    case 'CoinFactory.CoinCreated': return html`${tag('코인 창조', 'info')} ${addrLink(a.issuer)} 가 ${a.symbol} (${a.name}) 발행`;
+    case "Members.Joined": return html`${tag("가입")} ${addrLink(a.who)} 님이 ${a.memberNo}번째 회원이 됨`;
+    case "Seogilwon.Mint": return html`${tag("발행", "ok")} ${addrLink(a.to)} 에게 ${won(a.amount)} 새로 발행 ${a.memo ? "— “" + a.memo + "”" : ""}`;
+    case "Seogilwon.Burn": return html`${tag("소각", "warn")} ${won(a.amount)} 소멸 ${a.memo ? "— “" + a.memo + "”" : ""}`;
+    case "Seogilwon.Memo": return html`${tag("송금", "info")} ${addrLink(a.from)} → ${addrLink(a.to)} ${won(a.value)} “${a.memo}”`;
+    case "Seogilwon.AuthorizationUsed": return html`${tag("서명 송금·결제", "info")} ${addrLink(a.authorizer)} 의 서명이 대납으로 실행됨`;
+    case "Seogilwon.MinterConfigured": return html`${tag("발행 한도")} ${addrLink(a.minter)} → ${won(a.minterAllowedAmount)}`;
+    case "Seogilwon.MinterRemoved": return html`${tag("발행 담당 해제")} ${addrLink(a.oldMinter)}`;
+    case "Seogilwon.Blacklisted": return html`${tag("블랙리스트", "bad")} ${addrLink(a.account)} — ${a.reason}`;
+    case "Seogilwon.UnBlacklisted": return html`${tag("블랙리스트 해제", "ok")} ${addrLink(a.account)}`;
+    case "Seogilwon.BlackFundsDestroyed": return html`${tag("자금 소각", "bad")} ${addrLink(a.account)} ${won(a.amount)}`;
+    case "Seogilwon.Pause": return html`${tag("전체 정지", "bad")} ${a.reason}`;
+    case "Seogilwon.Unpause": return html`${tag("정지 해제", "ok")}`;
+    case "Seogilwon.ReserveAttested": return html`${tag("준비금 공시", "info")} ${won(a.reserve)}`;
+    case "Seogilwon.Upgraded": return html`${tag("업그레이드", "bad")} 서길원의 규칙이 ${addrLink(a.implementation)} 로 바뀜`;
+    case "Seogilwon.Clawback": return html`${tag("강제 회수", "bad")} ${addrLink(a.from)} 에서 ${won(a.amount)}`;
+    case "Market.ShopOpened": return html`${tag("개점", "info")} ${addrLink(a.owner)} 의 <a href="#/shop/s/${a.shopId}">${a.name}</a>`;
+    case "Market.ProductListed": return html`${tag("상품 등록")} <a href="#/shop/p/${a.productId}">${a.name}</a> ${won(a.price)}`;
+    case "Market.Purchased": return html`${tag("구매", "ok")} ${addrLink(a.buyer)} → ${addrLink(a.seller)} <a href="#/shop/p/${a.productId}">상품 #${a.productId}</a> × ${a.quantity} = ${won(a.total)}`;
+    case "CoinFactory.CoinCreated": return html`${tag("코인 창조", "info")} ${addrLink(a.issuer)} 가 ${a.symbol} (${a.name}) 발행`;
+    case "Forwarder.Executed": return html`${tag("대납 중계")} ${addrLink(a.from)} 의 요청을 ${addrLink(a.relayer)} 가 대신 실행`;
     default: return null;
   }
 }
@@ -58,7 +62,7 @@ export default {
     app.onBlock(() => strip().catch(() => {}));
 
     const items = [];
-    for (const n of ['Members', 'WonCoin', 'Market', 'CoinFactory']) {
+    for (const n of ['Members', 'Seogilwon', 'Market', 'CoinFactory', 'Forwarder']) {
       const c = await getContract(n);
       for (const { ev, log } of await getEvents(c)) {
         const d = line(n, ev);

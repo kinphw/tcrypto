@@ -13,6 +13,7 @@ const outDir = path.join(root, 'web', 'contracts');
 // cancun: 실험망 제네시스(config/network.json → genesis)에서 활성화한 최신 하드포크와 맞춘다
 export const SETTINGS = {
   optimizer: { enabled: true, runs: 200 },
+  viaIR: true, // 서명 결제 함수처럼 인자가 많은 함수의 'Stack too deep' 회피
   evmVersion: 'cancun',
   outputSelection: {
     '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object',
@@ -39,7 +40,7 @@ for (const [file, contracts] of Object.entries(out.contracts)) {
       contractName: name,
       sourceFile: file,
       source: sources[file].content,
-      compiler: { version: solc.version(), settings: { optimizer: SETTINGS.optimizer, evmVersion: SETTINGS.evmVersion } },
+      compiler: { version: solc.version(), settings: { optimizer: SETTINGS.optimizer, viaIR: SETTINGS.viaIR, evmVersion: SETTINGS.evmVersion } },
       abi: c.abi,
       bytecode: '0x' + c.evm.bytecode.object,
       deployedBytecode: '0x' + c.evm.deployedBytecode.object,

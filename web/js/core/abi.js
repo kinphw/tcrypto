@@ -34,6 +34,20 @@ export async function identify(address) {
   return r;
 }
 
+const IMPL_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+/** 프록시면 실제 구현 주소 (EIP-1967 칸), 아니면 null */
+export async function implementationOf(address) {
+  if ((await identify(address)) !== 'SgwProxy') return null;
+  const raw = await rpc('eth_getStorageAt', [address, IMPL_SLOT, 'latest']);
+  return E().getAddress('0x' + raw.slice(26));
+}
+/** 호출·이벤트 해독에 쓸 이름: 프록시면 지금 구현(V1/V2)의 이름 */
+export async function resolveName(address) {
+  const n = await identify(address);
+  if (n !== 'SgwProxy') return n;
+  return (await identify(await implementationOf(address))) || n;
+}
+
 export async function decodeInput(to, data) {
   if (!data || data === '0x') return null;
   const arts = await allArtifacts();
@@ -47,7 +61,7 @@ export async function decodeInput(to, data) {
     }
     return { kind: 'deploy', contract: null };
   }
-  const name = await identify(to);
+  const name = await resolveName(to);
   const ordered = name ? [arts.find((a) => a.art.contractName === name), ...arts] : arts;
   for (const a of ordered.filter(Boolean)) {
     try {
@@ -59,7 +73,7 @@ export async function decodeInput(to, data) {
 }
 
 export async function decodeLog(log) {
-  const name = await identify(log.address);
+  const name = await resolveName(log.address);
   const arts = await allArtifacts();
   const ordered = name ? [arts.find((a) => a.art.contractName === name), ...arts] : arts;
   for (const a of ordered.filter(Boolean)) {

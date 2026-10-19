@@ -2,26 +2,41 @@
   {
     "name": "CoinFactory",
     "sourceFile": "CoinFactory.sol",
-    "bytes": 5043
+    "bytes": 5275
   },
   {
     "name": "FriendCoin",
     "sourceFile": "CoinFactory.sol",
-    "bytes": 2812
+    "bytes": 2775
+  },
+  {
+    "name": "Forwarder",
+    "sourceFile": "Forwarder.sol",
+    "bytes": 2624
   },
   {
     "name": "Market",
     "sourceFile": "Market.sol",
-    "bytes": 5844
+    "bytes": 6186
   },
   {
     "name": "Members",
     "sourceFile": "Members.sol",
-    "bytes": 2245
+    "bytes": 2232
   },
   {
-    "name": "WonCoin",
-    "sourceFile": "WonCoin.sol",
-    "bytes": 8598
+    "name": "SeogilwonV1",
+    "sourceFile": "Seogilwon.sol",
+    "bytes": 11623
+  },
+  {
+    "name": "SeogilwonV2",
+    "sourceFile": "Seogilwon.sol",
+    "bytes": 11954
+  },
+  {
+    "name": "SgwProxy",
+    "sourceFile": "SgwProxy.sol",
+    "bytes": 991
   }
 ]

@@ -12,7 +12,7 @@
    export default {
      title: '내 화면',
      async render(view, params, app) {
-       const coin = await getContract('WonCoin');
+       const coin = await getContract('Seogilwon');
        render(view, html`<h1>총 발행량 ${won(await coin.totalSupply())}</h1>`);
      },
    };
@@ -51,3 +51,19 @@
 
 `web\app-config.json` 의 `network` 만 바꾸면 됩니다 (예: Base Sepolia, Holesky).
 `rpc` 는 브라우저에서 호출 가능한(CORS 허용) 공개 노드여야 합니다.
+
+## 대납(수수료 없는 쓰기) 붙이기
+
+새 컨트랙트도 `ERC2771Context(forwarder)` 를 상속하고 `msg.sender` 대신 `_msgSender()` 를 쓰면 대납 중계를 그대로 쓸 수 있습니다.
+화면에서는 `core/relay.js` 의 `perform` 하나로 ‘내가 냄 / 대납 요청’ 두 방식을 모두 처리합니다.
+
+```js
+import { perform, signForward } from '../core/relay.js';
+await perform({
+  label: '투표: 1번',
+  direct: async () => (await writable(c)).vote(1),       // 내가 ETH 로 수수료
+  gasless: () => signForward(c, 'vote', [1], '투표: 1번'), // 서명만 → 대납 요청 링크
+});
+```
+
+대납 요청 링크(`#/relay/…`)를 연 사람은 `web/js/modules/relay.js` 화면에서 서명을 검증하고 올립니다.

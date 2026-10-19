@@ -3,7 +3,7 @@
 // 컨트랙트는 여기에 더해 자기만의 저장공간(storage)이 있고, 토큰 잔액은 그 안의 칸에 적힌다.
 import { rpc, artifact } from './chain.js';
 import { verifyAccountProof, verifyStorageProof } from './verify.js';
-import { identify } from './abi.js';
+import { resolveName } from './abi.js';
 
 const E = () => globalThis.ethers;
 export const EMPTY_CODE_HASH = '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'; // keccak256(빈 코드)
@@ -43,10 +43,10 @@ export async function readAccount(address, storageKeys = [], blockTag = 'latest'
   return { block, proof, account, storage };
 }
 
-/** 토큰 컨트랙트 주소 → 산출물 (원화코인 또는 친구 코인만) */
+/** 토큰 컨트랙트 주소 → 산출물 (서길원 또는 친구 코인만) */
 async function tokenArtifact(address) {
-  const name = await identify(address);
-  return name === 'WonCoin' || name === 'FriendCoin' ? { name, art: await artifact(name) } : null;
+  const name = await resolveName(address); // 서길원 프록시면 구현(V1/V2)의 변수 배치를 쓴다 — 데이터는 프록시 저장공간에 있음
+  return ['SeogilwonV1', 'SeogilwonV2', 'FriendCoin'].includes(name) ? { name, art: await artifact(name) } : null;
 }
 
 /**
@@ -72,17 +72,17 @@ export async function cellsForTx(tx, receipt, block) {
       const base = slotOf(t.art, 'balanceOf');
       for (const holder of [a(1), a(2)]) {
         if (holder === E().ZeroAddress) continue;
-        add({ kind: 'storage', address: E().getAddress(log.address), token: t.name, var: 'balanceOf', key: holder, slot: mappingSlot(holder, base), base });
+        add({ kind: 'storage', address: E().getAddress(log.address), token: t.name.startsWith('Seogilwon') ? 'Seogilwon' : t.name, var: 'balanceOf', key: holder, slot: mappingSlot(holder, base), base });
       }
-      // 다른 프로그램(예: 상점가)이 대신 꺼내 간 경우(transferFrom): 그 프로그램에 허락해 둔 한도 칸도 줄어든다
-      if (tx.to && tx.to.toLowerCase() !== log.address.toLowerCase() && a(1) !== E().ZeroAddress) {
+      // 상점가가 approve 받은 금액을 대신 꺼내 간 경우(buy → transferFrom): 상점가에 허락해 둔 한도 칸도 줄어든다
+      if (tx.to && tx.input.startsWith(E().id('buy(uint256,uint256,string)').slice(0, 10)) && a(1) !== E().ZeroAddress) {
         const ab = slotOf(t.art, 'allowance');
         const spender = E().getAddress(tx.to);
-        add({ kind: 'storage', address: E().getAddress(log.address), token: t.name, var: 'allowance', key: a(1), key2: spender, slot: nestedMappingSlot(a(1), spender, ab), base: ab });
+        add({ kind: 'storage', address: E().getAddress(log.address), token: t.name.startsWith('Seogilwon') ? 'Seogilwon' : t.name, var: 'allowance', key: a(1), key2: spender, slot: nestedMappingSlot(a(1), spender, ab), base: ab });
       }
     } else {
       const base = slotOf(t.art, 'allowance');
-      add({ kind: 'storage', address: E().getAddress(log.address), token: t.name, var: 'allowance', key: a(1), key2: a(2), slot: nestedMappingSlot(a(1), a(2), base), base });
+      add({ kind: 'storage', address: E().getAddress(log.address), token: t.name.startsWith('Seogilwon') ? 'Seogilwon' : t.name, var: 'allowance', key: a(1), key2: a(2), slot: nestedMappingSlot(a(1), a(2), base), base });
     }
   }
   return cells;

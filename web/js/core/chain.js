@@ -107,14 +107,20 @@ export function artifact(name) {
 export const artifactIndex = () => fetch('contracts/index.json').then((r) => r.json());
 
 const contracts = {};
-/** 읽기용 컨트랙트. name: Members | WonCoin | Market | CoinFactory, 또는 (주소, 산출물이름) */
+/** 서길원(프록시) 주소에는 '최신 구현(V2) 함수 + 프록시 관리 함수·이벤트'를 합친 ABI 를 쓴다 (V1 일 때 V2 전용 함수는 거절됨) */
+export async function seogilwonAbi() {
+  const [v2, px] = await Promise.all([artifact('SeogilwonV2'), artifact('SgwProxy')]);
+  return [...v2.abi, ...px.abi.filter((x) => x.type === 'event' || (x.type === 'function' && ['proxyAdmin', 'proxyImplementation', 'upgradeTo', 'changeProxyAdmin'].includes(x.name)))];
+}
+
+/** 읽기용 컨트랙트. name: Forwarder | Seogilwon | Members | Market | CoinFactory, 또는 (산출물이름, 주소) */
 export async function getContract(name, address) {
   const key = `${name}@${address || ''}`;
   if (!contracts[key]) {
-    const a = await artifact(name);
+    const abi = name === 'Seogilwon' ? await seogilwonAbi() : (await artifact(name)).abi;
     const addr = address || chain.cfg.contracts?.[name];
     if (!addr) throw new Error(`${name} 컨트랙트가 아직 배포되지 않았습니다`);
-    contracts[key] = new (E().Contract)(addr, a.abi, chain.provider);
+    contracts[key] = new (E().Contract)(addr, abi, chain.provider);
   }
   return contracts[key];
 }
@@ -163,7 +169,7 @@ export function labelOf(addr) {
   const a = addr.toLowerCase();
   const c = chain.cfg.contracts || {};
   for (const [k, v] of Object.entries(c)) {
-    if (v && v.toLowerCase() === a) return { WonCoin: '원화코인 컨트랙트', Market: '상점가 컨트랙트', Members: '명부 컨트랙트', CoinFactory: '코인공장 컨트랙트' }[k];
+    if (v && v.toLowerCase() === a) return { Seogilwon: '서길원(프록시)', SeogilwonV1: '서길원 구현 V1', Forwarder: '대납 중계', Market: '상점가', Members: '명부', CoinFactory: '코인공장' }[k];
   }
   const nick = chain.members[a];
   if (chain.cfg.issuer && a === chain.cfg.issuer.toLowerCase()) return nick ? `${nick} (발행자)` : '발행자';
@@ -223,7 +229,7 @@ export async function switchNetwork() {
   }
 }
 
-/** MetaMask 화면에 원화코인(또는 친구 코인)을 표시하도록 등록 */
+/** MetaMask 화면에 서길원(또는 친구 코인)을 표시하도록 등록 */
 export async function watchToken(address, symbol) {
   return window.ethereum.request({ method: 'wallet_watchAsset', params: { type: 'ERC20', options: { address, symbol: symbol.slice(0, 11), decimals: 0 } } });
 }

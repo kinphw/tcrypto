@@ -8,6 +8,7 @@ export const MODULES = [
   { id: 'coins', group: '거래', title: '내 코인 발행', icon: 'MNT', load: () => import('./coins.js') },
   { id: 'issuer', group: '발행 · 감독', title: '발행자 · 감독', icon: 'ISS', load: () => import('./issuer.js') },
   { id: 'explore', group: '장부', title: '들여다보기', icon: 'EXP', load: () => import('./explore.js') },
+  { id: 'relay', title: '대납 요청', nav: false, load: () => import('./relay.js') },
   { id: 'tx', title: '거래 해부', nav: false, load: () => import('./tx.js') },
   { id: 'blocks', title: '블록', nav: false, load: () => import('./blocks.js') },
   { id: 'address', title: '주소', nav: false, load: () => import('./address.js') },

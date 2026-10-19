@@ -252,6 +252,16 @@ export default {
       const who = (id) => resolveRecipient($(id, view).value);
       const num = (id) => { const v = $(id, view).value.trim(); if (!/^\d+$/.test(v)) throw new Error('수량은 0 이상 정수'); return BigInt(v); };
       const why = (id, d) => $(id, view).value.trim() || d;
+      // 발행 담당은 서명할 수 있는 지갑이어야 한다. 컨트랙트(서길원 코인 주소 등)에 한도를 주면 아무도 쓸 수 없는 한도가 된다.
+      const minterWho = async (id) => {
+        const a = who(id);
+        const code = await rpc('eth_getCode', [a, 'latest']);
+        if (code && code !== '0x' && !code.startsWith('0xef0100')) { // 0xef0100… = 스마트 계정(EIP-7702)으로 바뀐 개인 지갑
+          const name = Object.entries(chain.cfg.contracts).find(([, v]) => v.toLowerCase() === a.toLowerCase())?.[0];
+          throw new Error(`${short(a, 6, 4)} 는 ${name ? `${name} 컨트랙트` : '컨트랙트'} 주소입니다. 발행 담당은 MetaMask 같은 지갑 주소여야 합니다.`);
+        }
+        return a;
+      };
       const act = (id, label, fn) => $(id, view)?.addEventListener('click', (ev) => busy(ev.target, async () => { await track(fn(await writable(token)), label); await draw(); }));
       $('#openLnk', view).addEventListener('click', () => { const v = $('#lnk', view).value.trim(); const i = v.indexOf('#/relay/'); if (i < 0) return toast('#/relay/ 가 들어 있는 링크를 붙여넣으세요', 'bad'); location.hash = v.slice(i); });
       act('#mint', '발행', (c) => c.mint(who('#mTo'), num('#mAmt'), why('#mMemo', '발행자 직접 발행')));
@@ -267,7 +277,7 @@ export default {
           : '처리할 요청이 없습니다';
       }).catch(() => { const el = $('#inboxSum', view); if (el) el.textContent = '우편함에 연결하지 못했습니다 — 링크로 받은 요청은 아래에 붙여넣어 여세요'; });
       act('#burn', '소각', (c) => c.burn(num('#bAmt'), why('#bMemo', '환매 처리')));
-      act('#cfgMinter', '발행 한도 설정', (c) => c.configureMinter(who('#kTo'), num('#kAmt')));
+      act('#cfgMinter', '발행 한도 설정', async (c) => c.configureMinter(await minterWho('#kTo'), num('#kAmt')));
       act('#rmMinter', '발행 담당 해제', (c) => c.removeMinter(who('#kTo')));
       act('#bl', '블랙리스트', (c) => c.blacklist(who('#xTo'), why('#xWhy', '사유 미기재')));
       act('#ubl', '블랙리스트 해제', (c) => c.unBlacklist(who('#xTo'), why('#xWhy', '사유 미기재')));

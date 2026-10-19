@@ -246,11 +246,19 @@ async function feeHint() {
   const maxPriorityFeePerGas = tip > MIN_TIP ? tip : MIN_TIP;
   return { maxPriorityFeePerGas, maxFeePerGas: (blk?.baseFeePerGas ?? 0n) * 2n + maxPriorityFeePerGas };
 }
+// 계산량 한도(gasLimit)도 MetaMask 추정에만 맡기면 가끔 필요량의 절반으로 잡혀 '가스 부족'으로 실패한다
+// (발행 한도 설정: 22,825 로 잡혀 실패, 실제 필요 약 42,000). 공개 노드로 추정하고 30% + 1만 여유를 둔다.
 export function withFeeHint(signer) {
   const send = signer.sendTransaction.bind(signer);
   signer.sendTransaction = async (tx) => {
     if (tx.maxFeePerGas == null && tx.gasPrice == null) {
       try { tx = { ...tx, ...(await feeHint()) }; } catch {} // 못 구하면 MetaMask 에 맡김
+    }
+    if (tx.gasLimit == null) {
+      try {
+        const g = await chain.provider.estimateGas({ ...tx, from: await signer.getAddress() });
+        tx = { ...tx, gasLimit: (g * 13n) / 10n + 10_000n };
+      } catch {} // 추정이 실패하면(컨트랙트가 거절할 거래 등) MetaMask 에 맡겨 MetaMask 가 경고하게 함
     }
     return send(tx);
   };

@@ -1,6 +1,6 @@
 import { chain, wallet, getContract, getEvents, writable, track, watchToken } from '../core/chain.js';
 import { html, render, $, $$, fmtNum, addrLink, explain, tag, busy, toast, txLink, errMsg } from '../core/ui.js';
-import { notReady, feeToggle } from './home.js';
+import { notReady } from './home.js';
 import { perform, signForward } from '../core/relay.js';
 import { resolveRecipient } from './send.js';
 
@@ -25,7 +25,7 @@ const mod = {
         <li><b>서길원(sgw)</b>: 입금 신청 → 발행 담당이 한도 안에서 발행. 블랙리스트·정지·업그레이드 같은 통제 장치와 준비금 공시가 있고 상점 결제에 쓰입니다.</li>
         <li><b>내 코인</b>: 버튼 하나로 생기고, 만든 사람이 원하는 만큼 마음대로 찍어낼 수 있습니다. 담보도, 발행 한도도, 차단 장치도 없습니다.</li>
       </ul><p>둘 다 똑같은 ERC-20 토큰이라 MetaMask·이더스캔에서는 구별 없이 ‘토큰’으로 보입니다. 이름만 보고는 믿을 수 있는 코인인지 알 수 없다는 점이 감독의 핵심 고민입니다.</p>`, { open: true })}
-      <div class="card"><div class="card-head"><h2>새 코인 만들기</h2><span class="small muted">수수료</span><span id="feeSeg"></span></div>
+      <div class="card"><div class="card-head"><h2>새 코인 만들기</h2></div>
         <div class="row"><input id="cName" maxlength="20" placeholder="이름 (예: 철수포인트)" style="flex:2;min-width:160px"><input id="cSym" maxlength="11" placeholder="기호 (예: CSP)" style="width:120px">
           <input id="cSupply" type="number" min="0" step="1" placeholder="처음 발행량" style="width:140px"><button class="btn btn-primary" id="create" ${me ? '' : 'disabled'}>발행</button></div>
         <p class="small muted" style="margin-top:6px">코인공장 컨트랙트가 새 코인 컨트랙트를 만들어 줍니다. 처음 발행량은 전부 내 지갑으로 들어옵니다.</p></div>
@@ -38,7 +38,6 @@ const mod = {
         </tbody></table></div>` : html`<div class="empty">아직 아무도 코인을 만들지 않았습니다</div>`}</div>
     `);
 
-    if (me) $('#feeSeg', view).appendChild(feeToggle());
     $('#create', view).addEventListener('click', (ev) => busy(ev.target, async () => {
       const n = $('#cName', view).value.trim(), s = $('#cSym', view).value.trim(), q = $('#cSupply', view).value.trim() || '0';
       if (!n || !s) throw new Error('이름과 기호를 입력하세요');

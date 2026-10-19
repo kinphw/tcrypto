@@ -61,6 +61,11 @@ let busy = false;
 const noted = new Set(); // 건너뛴 이유는 요청마다 한 번만 기록
 const skip = (it, why) => { if (!noted.has(it.id + why)) { noted.add(it.id + why); log({ ok: false, label: `${it.obj.label} — ${why}` }); } };
 export async function runOnce() {
+  // 같은 브라우저의 여러 탭이 동시에 처리기를 돌리면 같은 요청을 두 번 올림 → 탭 사이 잠금(Web Locks)으로 한 탭만
+  if (navigator.locks) return navigator.locks.request('tcrypto-relayer', { ifAvailable: true }, (lock) => (lock ? runInner() : 0));
+  return runInner();
+}
+async function runInner() {
   const w = relayer();
   if (!w || busy) return 0;
   busy = true;
@@ -81,6 +86,8 @@ export async function runOnce() {
         if (amt > maxMint()) { skip(it, `자동 발행 상한(${won(maxMint())}) 초과, 발행자가 직접 처리`); continue; }
         if (amt > st.allowance) { skip(it, '남은 발행 한도 부족'); continue; }
       }
+      const again = await requestStatus(it.obj, it.v, {}).catch(() => ['bad']);
+      if (again[0] !== 'ready') continue;
       try {
         const r = k === 'notice' ? await approveNotice(it.obj, w, { auto: true }) : await submitRelay(it.obj, w);
         log({ ok: r.status === 1, label: it.obj.label, tx: r.hash });

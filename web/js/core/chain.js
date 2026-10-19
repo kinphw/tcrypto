@@ -269,8 +269,10 @@ export async function writable(contract, signer) {
 }
 
 /** 거래 전송 → 알림 → 블록 포함까지 기다림 (공개 노드에 영수증을 직접 묻는다) */
-export async function track(txPromise, label = '거래') {
+/** quiet: 자동 처리기처럼 사람이 보지 않는 처리는 알림을 띄우지 않음 */
+export async function track(txPromise, label = '거래', { quiet = false } = {}) {
   const tx = await txPromise;
+  if (quiet) return waitReceipt(tx.hash);
   toast(`${label}: MetaMask 가 서명해 보냈습니다. 블록에 담길 때까지 기다리는 중… (보통 10~20초)`);
   const r = await waitReceipt(tx.hash);
   if (r.status === 1) toast(`${label} 완료 — 블록 #${r.blockNumber}`, 'ok');

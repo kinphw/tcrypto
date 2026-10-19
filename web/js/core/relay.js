@@ -3,7 +3,7 @@
 // 실제 서비스는 이 심부름을 회사 서버(릴레이어)가 자동으로 한다.
 import { chain, wallet, rpc, getContract, writable, track, requireWallet } from './chain.js';
 import { html, render, toast, openModal, short, won, errMsg } from './ui.js';
-import { postRequest, KEEP_HOURS } from './inbox.js';
+import { postRequest, requestStatus, KEEP_HOURS } from './inbox.js';
 import { TYPES, forwarderDomain, tokenDomain, buildForwardRequest, buildAuthorization, splitSig } from './sigs.js';
 
 const E = () => globalThis.ethers;
@@ -28,17 +28,9 @@ export async function decodePayload(payload) {
 }
 export const decodeRelay = decodePayload;
 
-// ───────── 수수료 방식: 'direct'(내가 ETH 로 냄) / 'gasless'(서명만, 대납 요청) ─────────
-const MODE_KEY = 'tcrypto.feeMode';
-export function getFeePref() { try { return localStorage.getItem(MODE_KEY) || 'auto'; } catch { return 'auto'; } }
-export function setFeePref(m) { try { localStorage.setItem(MODE_KEY, m); } catch {} }
-export async function feeMode() {
-  const pref = getFeePref();
-  if (pref !== 'auto') return pref;
-  if (!wallet.address) return 'gasless';
-  const bal = await chain.provider.getBalance(wallet.address);
-  return bal > E().parseEther('0.0005') ? 'direct' : 'gasless';
-}
+// ───────── 수수료: 참여자는 언제나 서명만 하고, 수수료는 발행사(자동 처리기)가 낸다 ─────────
+// 실제 스테이블코인 이용자처럼 참여자는 토큰만 쓴다. 직접 내는 선택지는 두지 않는다.
+export const feeMode = async () => 'gasless';
 
 const domainOf = {
   fwd: () => forwarderDomain(chain.cfg.network.chainId, chain.cfg.contracts.Forwarder),
@@ -125,18 +117,18 @@ export async function submitRelay(obj, signer) {
   if (obj.k === 'fwd') {
     const f = await writable(await getContract('Forwarder'), signer);
     const req = big(obj.req);
-    return track(f.execute(req, obj.sig, { gasLimit: req.gas + 120000n }), `대납: ${obj.label}`);
+    return track(f.execute(req, obj.sig, { gasLimit: req.gas + 120000n }), `대납: ${obj.label}`, { quiet: !!signer });
   }
   const s = splitSig(obj.sig);
   if (obj.k === 'auth') {
     const t = await writable(await getContract('Seogilwon'), signer);
     const a = big(obj.auth);
-    return track(t.transferWithAuthorization(a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`);
+    return track(t.transferWithAuthorization(a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`, { quiet: !!signer });
   }
   if (obj.k === 'buy') {
     const m = await writable(await getContract('Market'), signer);
     const a = big(obj.auth);
-    return track(m.buyWithAuthorization(obj.productId, obj.quantity, obj.note || '', a.from, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`);
+    return track(m.buyWithAuthorization(obj.productId, obj.quantity, obj.note || '', a.from, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`, { quiet: !!signer });
   }
   if (obj.k === 'gas') {
     const tx = await requireWallet().sendTransaction({ to: obj.gas.account, value: E().parseEther(GAS_GIFT) });
@@ -150,10 +142,36 @@ export async function approveNotice(obj, signer, { auto = false } = {}) {
   const v = verifyRelay(obj);
   if (!v.ok) throw new Error('서명이 맞지 않는 신청서입니다');
   const t = await writable(await getContract('Seogilwon'), signer);
-  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신청 ${v.digest} 확인${auto ? ' (자동)' : ''}`), '발행');
+  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신청 ${v.digest} 확인${auto ? ' (자동)' : ''}`), '발행', { quiet: !!signer });
 }
 
-// ───────── 서명 후 화면: 공개 요청함으로 전송 (실패하면 링크로) ─────────
+// ───────── 서명 후: 처리될 때까지 지켜보다가 '완료' 알림 + 화면 새로 그림 ─────────
+const WATCH_MS = 3 * 60 * 1000;
+async function watchUntilDone(obj) {
+  const v = verifyRelay(obj);
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = `${obj.label} — 처리 중… (보통 1분 안에)`;
+  box?.appendChild(el);
+  const until = Date.now() + WATCH_MS;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 4000));
+    const st = await requestStatus(obj, v).catch(() => null);
+    if (st?.[0] === 'used') {
+      el.className = 'toast ok';
+      el.textContent = `완료 — ${obj.label}`;
+      setTimeout(() => el.remove(), 5000);
+      window.dispatchEvent(new HashChangeEvent('hashchange')); // 지금 화면을 새로 그려 잔액 등 반영
+      return;
+    }
+    if (st?.[0] === 'expired') break;
+  }
+  el.textContent = `${obj.label} — 아직 처리 대기 중이에요. 잠시 후 내 지갑에서 확인하세요.`;
+  setTimeout(() => el.remove(), 8000);
+}
+
+// ───────── 요청함에 못 넣었을 때만: 링크로 보내기 ─────────
 export async function showRelayLink(obj, { to = '발행자(또는 ETH 가 있는 참여자)' } = {}) {
   const payload = await encodePayload(obj);
   const link = relayLink(payload);
@@ -162,6 +180,8 @@ export async function showRelayLink(obj, { to = '발행자(또는 ETH 가 있는
   let posted = null;
   let postErr = null;
   try { posted = await postRequest(obj); } catch (e) { postErr = errMsg(e); }
+  // 요청함에 들어갔으면 팝업 없이 '처리 중 → 완료'만 보여 줌 (실제 앱처럼)
+  if (posted) { watchUntilDone(obj); return link; }
 
   const what = obj.k === 'notice' ? '발행자가 입금을 확인하면 그 금액만큼 서길원을 발행해 줍니다.'
     : obj.k === 'gas' ? '발행자가 보면 수수료용 ETH 를 보내 줍니다.'

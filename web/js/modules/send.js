@@ -1,7 +1,7 @@
 import { chain, wallet, getContract, getEvents, writable, blockTime } from '../core/chain.js';
 import { html, render, $, fmtNum, timeAgo, txLink, addrLink, explain, busy, won, esc } from '../core/ui.js';
 import { perform, signTransfer, signForward, feeMode } from '../core/relay.js';
-import { notReady, feeToggle } from './home.js';
+import { notReady } from './home.js';
 
 const E = () => globalThis.ethers;
 
@@ -46,15 +46,11 @@ export default {
         </div>
         <div class="field"><label for="memo">메모 (블록체인에 영구 기록, 누구나 볼 수 있음)</label><input id="memo" maxlength="100" placeholder="예: 점심값"></div>
         <div id="preview" class="small muted" style="margin-bottom:10px"></div>
-        <div class="row" style="margin-bottom:12px"><span class="small muted">수수료</span><span id="feeSeg"></span><span class="small muted" id="feeNote"></span></div>
-        <button class="btn btn-primary" id="send" ${me ? '' : 'disabled'}>MetaMask 로 서명하고 보내기</button>
+        <button class="btn btn-primary" id="send" ${me ? '' : 'disabled'}>보내기</button>
         ${me ? '' : html`<p class="small muted" style="margin-top:6px">먼저 <a href="#/home">MetaMask 를 연결</a>하세요.</p>`}
       </div>
-      ${explain('보내기를 누르면 무슨 일이?', html`<ol>
-        <li><b>내가 냄</b>: 서길원 프로그램의 <code>transferWithMemo(받는주소, 금액, 메모)</code> 를 실행하라는 거래를 MetaMask 가 서명해 보내고, 내가 ETH 수수료를 냅니다.</li>
-        <li><b>대납 요청</b>: 내 서길원을 이 사람에게 보내도 된다는 내용(EIP-3009)에 서명만 하고, 그 서명을 발행자가 블록체인에 올립니다. 수수료는 발행자가 냅니다. 메모는 표준 서명 양식에 칸이 없어 기록되지 않습니다.</li>
-        <li>어느 쪽이든 블록에 담기면 서길원 프로그램이 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</li>
-      </ol>`)}
+      ${explain('보내기를 누르면 무슨 일이?', html`<p>MetaMask 에서 “내 서길원을 이 사람에게 보내도 된다”에 <b>서명</b>만 하면 됩니다(USDC 와 같은 EIP-3009 방식). 수수료는 발행사가 내고 블록체인에 올립니다.
+        블록에 담기면 서길원 프로그램이 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</p>`)}
       <div class="card"><h2>최근 송금 (전체 공개)</h2><div id="recent" class="loading">불러오는 중…</div></div>
     `);
 
@@ -66,8 +62,6 @@ export default {
     };
     $('#to', view).addEventListener('input', updatePreview);
     updatePreview();
-    const showMode = async () => { $('#feeNote', view).textContent = (await feeMode()) === 'direct' ? '— 내 ETH 로 수수료' : '— 서명만, 대납 링크 생성'; };
-    if (me) { $('#feeSeg', view).appendChild(feeToggle(showMode)); showMode(); }
 
     $('#send', view).addEventListener('click', (ev) => busy(ev.target, async () => {
       const to = resolveRecipient($('#to', view).value);

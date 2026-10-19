@@ -1,7 +1,7 @@
 import { chain, wallet, getContract, getEvents, writable, connectWallet, switchNetwork, watchToken, loadMembers, blockTime } from '../core/chain.js';
 import { isMobile, metamaskDeepLink, html, render, $, fmtUnits, timeAgo, txLink, addrLink, explain, tag, stat, busy, toast, won, scan, errMsg } from '../core/ui.js';
 import { readInbox, requestStatus } from '../core/inbox.js';
-import { perform, signForward, signTransfer, signNotice, signGasRequest, GAS_GIFT, showRelayLink, getFeePref, setFeePref, feeMode } from '../core/relay.js';
+import { perform, signForward, signTransfer, signNotice, showRelayLink } from '../core/relay.js';
 
 const E = () => globalThis.ethers;
 
@@ -10,22 +10,6 @@ export function notReady(view) {
     <p>발행자가 <a href="#/issuer">발행자 · 감독</a> 화면에서 처음 설정(컨트랙트 배포)을 마치면 열립니다.</p></div>`);
 }
 
-/** 수수료 방식 선택: 자동 / 내가 냄 / 발행자가 냄 */
-export function feeToggle(onChange) {
-  const pref = getFeePref();
-  const opt = [['auto', '자동'], ['direct', '내가 냄'], ['gasless', '발행자가 냄']];
-  const el = document.createElement('div');
-  el.className = 'seg';
-  el.innerHTML = opt.map(([k, l]) => `<button data-m="${k}" class="${pref === k ? 'on' : ''}">${l}</button>`).join('');
-  el.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    setFeePref(b.dataset.m);
-    el.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-    onChange?.();
-  });
-  return el;
-}
 
 function walletIntro(view) {
   const net = chain.cfg.network;
@@ -83,7 +67,6 @@ export default {
       const [sgw, eth, black, paused] = await Promise.all([token.balanceOf(me), chain.provider.getBalance(me), token.isBlacklisted(me), token.paused()]);
       const nick = chain.members[me.toLowerCase()]; // 예전에 등록한 이름표가 있으면 표시만
       const isIssuer = me.toLowerCase() === chain.cfg.issuer?.toLowerCase();
-      const mode = await feeMode();
 
       const has = sgw > 0n;
       const tiles = html`<div class="tiles ${has ? '' : 'off'}">
@@ -101,7 +84,7 @@ export default {
         <div class="balance">
           <div><div class="label">내 서길원</div><div class="amt">${won(sgw)}</div></div>
           <div class="side"><button class="btn small" id="watch">MetaMask 에 표시하기</button>
-            ${eth > 0n ? html`<span class="small muted">수수료용 ${net.currency.symbol} ${fmtUnits(eth, 18, 6)}</span>` : html`<span class="small muted">수수료는 발행사가 냅니다</span>`}</div>
+            <span class="small muted">수수료는 발행사가 냅니다</span></div>
         </div>
         <div id="myReq"></div>
 
@@ -124,16 +107,10 @@ export default {
 
         <div class="card"><div class="card-head"><h2>최근 입출금</h2><a class="small" href="#/address/${me}">전체 보기 →</a></div><div id="hist" class="loading">불러오는 중…</div></div>
 
-        <details class="card"><summary><b>수수료 설정</b> <span class="small muted">— 지금: ${mode === 'direct' ? '내가 ETH 로 냄' : '발행자가 냄'} (바꿀 일 거의 없음)</span></summary>
-          <div class="row" style="margin-top:10px"><span id="feeSeg"></span></div>
-          <p class="small muted">블록체인에 기록할 때마다 ETH 수수료가 듭니다. <b>발행자가 냄</b>이면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">요청함</a>으로 가서 발행사의 자동 처리기가 수수료를 내고 올려 줍니다. 발행자는 내용을 바꿀 수 없습니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
-            <b>자동</b>은 ETH 가 있으면 내가, 없으면 발행자가 냅니다.</p>
-        </details>
 
         ${explain('MetaMask·이더스캔에서도 똑같이 보이나요?', html`<p>[MetaMask 에 표시하기]를 누르면 MetaMask 의 토큰 목록에 sgw 가 생기고 위와 같은 잔액이 보입니다. ${scan('address', me, '이더스캔')}에서 내 주소를 검색해도 같습니다.
           세 곳이 각자 블록체인 장부를 읽기 때문입니다.</p>`)}
       `);
-      $('#feeSeg', view).appendChild(feeToggle(() => draw()));
 
       // 요청함에 아직 처리 안 된 내 요청이 있으면 위쪽에 알려 줌 (발행자를 기다리는 중이라는 걸 알 수 있게)
       readInbox().then(async ({ items }) => {
@@ -143,9 +120,9 @@ export default {
         for (const it of mine) { const st = await requestStatus(it.obj, it.v, ctx).catch(() => ['bad']); if (st[0] === 'ready' || st[0] === 'wait') waiting.push(it); }
         const el = $('#myReq', view);
         if (!el || !waiting.length) return;
-        render(el, html`<div class="verify warn"><div class="vtitle">발행자 처리를 기다리는 중 ${waiting.length}건</div>
+        render(el, html`<div class="verify warn"><div class="vtitle">처리 중 ${waiting.length}건</div>
           <ul class="small" style="margin:6px 0 0;padding-left:18px">${waiting.map((it) => html`<li>${it.obj.label} <span class="muted">· ${timeAgo(it.time)}</span></li>`)}</ul>
-          <div class="small muted" style="margin-top:4px">처리되면 잔액에 바로 반영됩니다. <a href="#/inbox">요청함에서 보기 →</a></div></div>`);
+          <div class="small muted" style="margin-top:4px">보통 1분 안에 반영됩니다.</div></div>`);
       }).catch(() => {});
 
       $('#watch', view).addEventListener('click', () => watchToken(chain.cfg.contracts.Seogilwon, 'sgw').then((ok) => ok && toast('MetaMask 에 sgw 를 추가했습니다', 'ok')).catch((e) => toast(errMsg(e), 'bad')));

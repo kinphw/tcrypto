@@ -1,6 +1,6 @@
 import { chain, wallet, getContract, getEvents, writable, track, blockTime, requireWallet } from '../core/chain.js';
 import { html, render, $, $$, fmtNum, timeAgo, short, txLink, addrLink, explain, tag, kv, busy, toast, won, raw, scan } from '../core/ui.js';
-import { notReady, feeToggle } from './home.js';
+import { notReady } from './home.js';
 import { perform, signForward, signBuy, showRelayLink, feeMode } from '../core/relay.js';
 
 const E = () => globalThis.ethers;
@@ -77,7 +77,7 @@ async function renderMall(view, app) {
       <span class="spacer"></span><a class="btn btn-primary" href="#/shop/mine">내 상점 관리</a></div>
     ${explain('결제는 어떻게 이루어지나', html`<p>상품을 사면 <b>상점가 컨트랙트</b>가 재고를 줄이고, 같은 거래 안에서 서길원을 <b>구매자 → 상점 주인</b>에게 직접 옮깁니다.
       중간에 돈을 맡아 두는 회사가 없고, 재고 감소와 결제가 함께 성공하거나 함께 실패합니다(원자성).</p>
-      <p>결제 방법은 두 가지입니다. <b>내가 냄</b>: 먼저 상점가에 내 서길원을 꺼내 갈 한도를 허락(approve)하고 구매 — ERC-20 표준 방식. <b>대납 요청</b>: “상점가가 내 서길원 N 을 받아 가도 된다”에 서명만 하고 발행자가 대신 올림 — USDC 의 EIP-3009 방식. 어느 쪽이든 결제와 재고 감소는 한 거래 안에서 함께 처리됩니다.</p>`)}
+      <p>구매할 때는 MetaMask 에서 “상점가가 내 서길원 N 을 받아 가도 된다”에 <b>서명</b>만 하면 됩니다(USDC 의 EIP-3009 방식). 수수료는 발행사가 냅니다.</p>`)}
     <div class="card"><div class="card-head"><h2>상점 ${shops.size}곳</h2></div>
       <div class="row">${[...shops.values()].map((s) => html`<a class="pill" href="#/shop/s/${s.id}">${s.open ? '' : '(휴업) '}${s.name} <span class="muted">· ${chain.members[s.owner.toLowerCase()] || short(s.owner)}</span></a>`)}
       ${shops.size ? '' : html`<span class="muted">아직 상점이 없습니다. 첫 상점을 열어 보세요!</span>`}</div></div>
@@ -139,7 +139,6 @@ async function renderProduct(view, id, app, first = true) {
           <div class="row"><label for="qty" class="small">수량</label><input id="qty" type="number" min="1" step="1" value="1" style="width:90px">
             <input id="note" placeholder="요청사항 (선택)" style="flex:1;min-width:140px"></div>
           <p class="small" id="sum" style="margin-top:8px"></p>
-          <div class="row" style="margin:10px 0 6px"><span class="small muted">수수료</span><span id="feeSeg"></span></div>
           <div id="how" class="small" style="margin-bottom:10px"></div>
           <button class="btn btn-primary" id="buy" ${canBuy && me ? '' : raw('disabled')}>구매하기</button>
           ${me ? html`<p class="small muted" style="margin-top:6px">내 잔액 ${won(bal)}</p>` : html`<p class="small muted">구매하려면 <a href="#/home">MetaMask 연결</a>이 필요합니다.</p>`}
@@ -156,10 +155,8 @@ async function renderProduct(view, id, app, first = true) {
       render($('#how', view), mode === 'direct'
         ? html`<ol class="steps"><li class="${allowance > 0n ? 'done' : ''}"><div><b>결제 허용 (approve)</b> — 상점가가 내 서길원을 정해진 금액까지 꺼내 갈 수 있게 허락. 현재 허용액 ${won(allowance)}</div></li>
             <li><div><b>구매 (buy)</b> — 재고 감소 + 서길원 이전이 한 거래로 처리. 수수료는 내 ETH.</div></li></ol>`
-        : html`<ol class="steps"><li><div><b>결제 서명 (EIP-3009)</b> — “상점가가 내 서길원 N 을 받아 가도 된다”에 서명만 합니다. 수수료 0.</div></li>
-            <li><div><b>대납</b> — 서명이 요청함으로 발행자에게 가고, 발행자가 올리는 순간 재고 감소 + 결제가 한 거래로 처리됩니다.</div></li></ol>`);
+        : html`<p class="small muted">MetaMask 에서 서명 한 번이면 끝. 보통 1분 안에 재고 감소와 결제가 함께 처리됩니다.</p>`);
     };
-    if (me) { $('#feeSeg', view).appendChild(feeToggle(showHow)); }
     showHow();
     $('#qty', view).addEventListener('input', upd);
     upd();
@@ -200,7 +197,6 @@ async function renderMine(view, app) {
 
   render(view, html`
     <div class="page-head"><div><h1>내 상점 관리</h1><div class="sub">상점 열기 · 상품 올리기 · 판매 확인</div></div><span class="spacer"></span><a class="btn" href="#/shop">← 상점가</a></div>
-    <div class="card"><div class="row"><span class="small muted">수수료</span><span id="feeSeg"></span><span class="small muted">대납 요청이면 서명만 하면 요청함으로 발행자에게 갑니다. 대납 모드의 사진은 링크 길이 때문에 4KB 이하로 더 줄입니다.</span></div></div>
     <div class="card"><h2>새 상점 열기</h2>
       <div class="row"><input id="sName" maxlength="40" placeholder="상점 이름 (예: 철수네 붕어빵)" style="flex:1;min-width:180px"><input id="sDesc" maxlength="150" placeholder="한 줄 소개" style="flex:2;min-width:200px">
         <button class="btn btn-primary" id="open">상점 열기</button></div></div>
@@ -224,8 +220,7 @@ async function renderMine(view, app) {
     <div class="card"><h2>받은 주문 (${fmtNum(myOrders.length)}건, 매출 ${won(myOrders.reduce((a, { ev }) => a + ev.args.total, 0n))})</h2>${orderTable(myOrders, products)}</div>
   `);
 
-  $('#feeSeg', view).appendChild(feeToggle());
-  // 쓰기 공통: 내가 내면 바로 실행 후 새로고침, 대납이면 서명 → 링크
+  // 쓰기 공통: ETH 가 있으면 바로 실행 후 새로고침, 없으면 서명 → 요청함 → 처리되면 자동으로 새로 그림
   const act = (method, args, label) => perform({
     label,
     direct: async () => (await writable(m))[method](...args),

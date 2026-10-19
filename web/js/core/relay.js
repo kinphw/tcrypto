@@ -146,7 +146,7 @@ export async function approveNotice(obj, signer, { auto = false } = {}) {
 }
 
 // ───────── 서명 후: 처리될 때까지 지켜보다가 '완료' 알림 + 화면 새로 그림 ─────────
-const WATCH_MS = 3 * 60 * 1000;
+const WATCH_MS = 15 * 60 * 1000; // 처리기가 잠깐 멈춰 있어도 기다렸다가 반영
 async function watchUntilDone(obj) {
   const v = verifyRelay(obj);
   const box = document.getElementById('toasts');
@@ -156,7 +156,8 @@ async function watchUntilDone(obj) {
   box?.appendChild(el);
   const until = Date.now() + WATCH_MS;
   while (Date.now() < until) {
-    await new Promise((r) => setTimeout(r, 4000));
+    // 처음 2분은 4초마다, 그 뒤는 15초마다 확인
+    await new Promise((r) => setTimeout(r, Date.now() < until - WATCH_MS + 120000 ? 4000 : 15000));
     const st = await requestStatus(obj, v).catch(() => null);
     if (st?.[0] === 'used') {
       el.className = 'toast ok';
@@ -167,7 +168,7 @@ async function watchUntilDone(obj) {
     }
     if (st?.[0] === 'expired') break;
   }
-  el.textContent = `${obj.label} — 아직 처리 대기 중이에요. 잠시 후 내 지갑에서 확인하세요.`;
+  el.textContent = `${obj.label} — 아직 처리 대기 중이에요. 발행사 처리기가 켜지면 반영됩니다.`;
   setTimeout(() => el.remove(), 8000);
 }
 

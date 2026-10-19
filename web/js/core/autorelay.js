@@ -106,16 +106,28 @@ async function runInner() {
 }
 
 // ───────── 켜기 / 끄기 (화면을 옮겨도 계속 돌도록 app.js 에서 시작) ─────────
+// 브라우저는 뒤에 숨은 탭의 setInterval 을 느리게(최대 1분에 한 번) 돌린다 → 박자는 Worker 가 세고(느려지지 않음), 처리는 이 탭이 한다
 let timer = null;
+function ticker(fn) {
+  try {
+    const url = URL.createObjectURL(new Blob([`setInterval(() => postMessage(0), ${INTERVAL_MS});`], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    w.onmessage = fn;
+    return { stop: () => { w.terminate(); URL.revokeObjectURL(url); } };
+  } catch {
+    const id = setInterval(fn, INTERVAL_MS);
+    return { stop: () => clearInterval(id) };
+  }
+}
 export function start() {
   set('on', '1');
   if (timer || !relayer()) return;
   runOnce();
-  timer = setInterval(runOnce, INTERVAL_MS);
+  timer = ticker(() => runOnce());
 }
 export function stop() {
   set('on', null);
-  clearInterval(timer);
+  timer?.stop();
   timer = null;
 }
 export const running = () => !!timer;

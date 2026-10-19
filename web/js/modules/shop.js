@@ -125,6 +125,7 @@ async function renderProduct(view, id, app, first = true) {
     const fresh = await m.getProduct(id);
     p.stock = fresh.stock; p.sold = fresh.sold; p.price = fresh.price; p.active = fresh.active;
     const canBuy = s.open && p.active && p.stock > 0n;
+    const isOwner = !!me && s.owner.toLowerCase() === me.toLowerCase();
     render(view, html`
       <div class="page-head"><a class="btn" href="#/shop/s/${s.id}">← ${s.name}</a></div>
       <div class="grid grid-2">
@@ -136,14 +137,35 @@ async function renderProduct(view, id, app, first = true) {
           <div class="big-num">${won(p.price)}</div>
           <p style="white-space:pre-wrap">${p.description}</p>
           <p class="small muted">재고 ${fmtNum(p.stock)} · 지금까지 ${fmtNum(p.sold)}개 판매 ${!canBuy ? tag(!s.open ? '상점 휴업' : !p.active ? '판매 중지' : '품절', 'warn') : ''}</p>
+          ${isOwner ? html`
+          <div class="verify" style="margin-top:10px"><div class="vtitle">내 상품 — 가격·재고 수정</div>
+            <div class="row" style="margin-top:8px">
+              <label class="small">가격 <input id="ePrice" type="number" min="0" step="1" value="${p.price.toString()}" style="width:120px"> sgw</label>
+              <label class="small">재고 <input id="eStock" type="number" min="0" step="1" value="${p.stock.toString()}" style="width:90px"></label>
+              <label class="small"><input id="eActive" type="checkbox" ${p.active ? raw('checked') : ''}> 판매 중</label>
+            </div>
+            <button class="btn btn-primary" id="saveProd" style="margin-top:8px">수정 저장</button>
+            <p class="small muted" style="margin-top:6px">서명 한 번이면 보통 1분 안에 바뀝니다. 다른 상품은 <a href="#/shop/mine">내 상점 관리</a>에서.</p></div>`
+          : html`
           <div class="row"><label for="qty" class="small">수량</label><input id="qty" type="number" min="1" step="1" value="1" style="width:90px">
             <input id="note" placeholder="요청사항 (선택)" style="flex:1;min-width:140px"></div>
           <p class="small" id="sum" style="margin-top:8px"></p>
           <div id="how" class="small" style="margin-bottom:10px"></div>
           <button class="btn btn-primary" id="buy" ${canBuy && me ? '' : raw('disabled')}>구매하기</button>
-          ${me ? html`<p class="small muted" style="margin-top:6px">내 잔액 ${won(bal)}</p>` : html`<p class="small muted">구매하려면 <a href="#/home">MetaMask 연결</a>이 필요합니다.</p>`}
+          ${me ? html`<p class="small muted" style="margin-top:6px">내 잔액 ${won(bal)}</p>` : html`<p class="small muted">구매하려면 <a href="#/home">MetaMask 연결</a>이 필요합니다.</p>`}`}
         </div>
       </div>`);
+    if (isOwner) {
+      $('#saveProd', view).addEventListener('click', (ev) => busy(ev.target, async () => {
+        const price = $('#ePrice', view).value.trim();
+        const stock = $('#eStock', view).value.trim();
+        if (!/^\d+$/.test(price) || !/^\d+$/.test(stock)) throw new Error('가격과 재고는 0 이상 정수로 입력하세요');
+        const args = [id, BigInt(price), BigInt(stock), $('#eActive', view).checked];
+        const label = `상품 수정: ${p.name} → ${won(BigInt(price))}, 재고 ${stock}`;
+        await perform({ label, direct: async () => (await writable(m)).updateProduct(...args), gasless: () => signForward(m, 'updateProduct', args, label) });
+      }));
+      return;
+    }
     const upd = () => {
       const q = BigInt(Math.max(1, Number($('#qty', view).value) || 1));
       const total = p.price * q;
@@ -209,13 +231,13 @@ async function renderMine(view, app) {
       <textarea data-f="desc" rows="2" maxlength="300" placeholder="상품 설명" style="margin-top:6px"></textarea>
       <div class="row" style="margin-top:6px"><label class="btn small">사진 선택<input type="file" accept="image/*" data-f="file" hidden></label><span class="small muted" data-f="fileInfo">사진은 선택 사항 (자동으로 줄여서 올림)</span>
         <span class="spacer"></span><button class="btn btn-primary" data-list>상품 올리기</button></div>
-      <h3 style="margin-top:14px">내 상품</h3>
+      <h3 style="margin-top:14px">내 상품 <span class="small muted">— 가격·재고를 고치고 [수정 저장]</span></h3>
       ${[...products.values()].filter((p) => p.shopId === s.id).length ? html`<div class="table-wrap"><table><thead><tr><th>상품</th><th class="num">가격</th><th class="num">재고</th><th class="num">판매</th><th>판매 중</th><th></th></tr></thead><tbody>
         ${[...products.values()].filter((p) => p.shopId === s.id).map((p) => html`<tr data-prod="${p.id}"><td><a href="#/shop/p/${p.id}">${p.name}</a></td>
           <td class="num"><input data-e="price" type="number" value="${p.price.toString()}" style="width:100px"></td>
           <td class="num"><input data-e="stock" type="number" value="${p.stock.toString()}" style="width:80px"></td>
           <td class="num">${fmtNum(p.sold)}</td><td><input data-e="active" type="checkbox" ${p.active ? raw('checked') : ''}></td>
-          <td><button class="btn small" data-save>저장</button></td></tr>`)}</tbody></table></div>` : html`<div class="empty small">아직 상품이 없습니다</div>`}
+          <td><button class="btn small btn-primary" data-save>수정 저장</button></td></tr>`)}</tbody></table></div>` : html`<div class="empty small">아직 상품이 없습니다</div>`}
     </div>`)}
     <div class="card"><h2>받은 주문 (${fmtNum(myOrders.length)}건, 매출 ${won(myOrders.reduce((a, { ev }) => a + ev.args.total, 0n))})</h2>${orderTable(myOrders, products)}</div>
   `);

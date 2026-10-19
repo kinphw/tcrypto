@@ -176,5 +176,5 @@ export const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAge
  *  # 뒷부분은 앱으로 넘어가며 사라질 수 있어 ?go= 에 담아 보내고, 앱에서 열리면 app.js 가 # 로 되돌린다. */
 export function metamaskDeepLink() {
   const go = location.hash ? `?go=${encodeURIComponent(location.hash)}` : '';
-  return `https://metamask.app.link/dapp/${location.host}${location.pathname}${go}`;
+  return `https://link.metamask.io/dapp/${location.host}${location.pathname}${go}`;
 }

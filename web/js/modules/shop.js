@@ -157,7 +157,7 @@ async function renderProduct(view, id, app, first = true) {
         ? html`<ol class="steps"><li class="${allowance > 0n ? 'done' : ''}"><div><b>결제 허용 (approve)</b> — 상점가가 내 서길원을 정해진 금액까지 꺼내 갈 수 있게 허락. 현재 허용액 ${won(allowance)}</div></li>
             <li><div><b>구매 (buy)</b> — 재고 감소 + 서길원 이전이 한 거래로 처리. 수수료는 내 ETH.</div></li></ol>`
         : html`<ol class="steps"><li><div><b>결제 서명 (EIP-3009)</b> — “상점가가 내 서길원 N 을 받아 가도 된다”에 서명만 합니다. 수수료 0.</div></li>
-            <li><div><b>대납</b> — 서명을 담은 링크를 발행자에게 보내면, 발행자가 올리는 순간 재고 감소 + 결제가 한 거래로 처리됩니다.</div></li></ol>`);
+            <li><div><b>대납</b> — 서명이 요청함으로 발행자에게 가고, 발행자가 올리는 순간 재고 감소 + 결제가 한 거래로 처리됩니다.</div></li></ol>`);
     };
     if (me) { $('#feeSeg', view).appendChild(feeToggle(showHow)); }
     showHow();
@@ -200,7 +200,7 @@ async function renderMine(view, app) {
 
   render(view, html`
     <div class="page-head"><div><h1>내 상점 관리</h1><div class="sub">상점 열기 · 상품 올리기 · 판매 확인</div></div><span class="spacer"></span><a class="btn" href="#/shop">← 상점가</a></div>
-    <div class="card"><div class="row"><span class="small muted">수수료</span><span id="feeSeg"></span><span class="small muted">대납 요청이면 서명 후 링크를 발행자에게 보내세요. 대납 모드의 사진은 링크 길이 때문에 4KB 이하로 더 줄입니다.</span></div></div>
+    <div class="card"><div class="row"><span class="small muted">수수료</span><span id="feeSeg"></span><span class="small muted">대납 요청이면 서명만 하면 요청함으로 발행자에게 갑니다. 대납 모드의 사진은 링크 길이 때문에 4KB 이하로 더 줄입니다.</span></div></div>
     <div class="card"><h2>새 상점 열기</h2>
       <div class="row"><input id="sName" maxlength="40" placeholder="상점 이름 (예: 철수네 붕어빵)" style="flex:1;min-width:180px"><input id="sDesc" maxlength="150" placeholder="한 줄 소개" style="flex:2;min-width:200px">
         <button class="btn btn-primary" id="open">상점 열기</button></div></div>

@@ -2,6 +2,7 @@ import { chain, wallet, rpc, getContract, getEvents, writable, track, artifact, 
 import { html, render, $, fmtNum, timeAgo, short, txLink, addrLink, explain, tag, kv, stat, busy, toast, won, scan, copyBtn } from '../core/ui.js';
 import { resolveRecipient } from './send.js';
 import { createAddressSteps } from '../core/ledger.js';
+import { readInbox, requestStatus } from '../core/inbox.js';
 
 const E = () => globalThis.ethers;
 const TOKEN = { name: '서길원', symbol: 'sgw', currency: 'KRW', decimals: 0 };
@@ -160,6 +161,9 @@ export default {
         ${me ? html`<p class="small">내 역할: ${myRoles.map(([, l]) => tag(l, 'info'))} ${myMinter ? tag(`발행 담당 (남은 한도 ${won(myAllowance)})`, 'info') : ''}
           ${!myRoles.length && !myMinter ? html`<span class="muted">없음 — 볼 수는 있지만 조치는 컨트랙트가 거절합니다</span>` : ''}</p>` : ''}
 
+        <div class="card"><div class="card-head"><h2>받은 요청함</h2><a class="btn btn-primary small" href="#/inbox">요청함 열기 →</a></div>
+          <div id="inboxSum" class="small muted">우편함 확인 중…</div></div>
+
         <div class="stats">
           ${stat('총 발행량', won(supply), paused ? '전체 거래 정지 중' : '정상 유통')}
           ${stat('최근 준비금 비율', cover == null ? '공시 없음' : cover.toFixed(1) + '%', last ? `${won(last.reserve)} 공시` : '')}
@@ -181,7 +185,7 @@ export default {
 
         <div class="grid grid-2">
           <div class="card"><h2>입금 신고 → 발행</h2>
-            <p class="small">참여자가 보낸 <b>입금 신고 링크</b>를 열면 서명을 검증하고 [입금 확인 → 발행] 버튼이 나옵니다. 링크를 아래에 붙여넣어도 됩니다.</p>
+            <p class="small">참여자의 입금 신고는 <a href="#/inbox">요청함</a>에 자동으로 들어옵니다. 링크로 받았다면 아래에 붙여넣어 여세요.</p>
             <div class="row"><input id="lnk" placeholder="https://… #/relay/…" style="flex:1;min-width:160px"><button class="btn small" id="openLnk">열기</button></div>
             <div class="field" style="margin-top:12px"><label>직접 발행 (신고 링크 없이)</label>
               <div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><input id="mAmt" type="number" min="1" placeholder="sgw" style="width:110px"><input id="mMemo" placeholder="메모" style="width:120px"><button class="btn small btn-primary" id="mint" ${myMinter ? '' : 'disabled'}>발행</button></div>
@@ -251,6 +255,17 @@ export default {
       const act = (id, label, fn) => $(id, view)?.addEventListener('click', (ev) => busy(ev.target, async () => { await track(fn(await writable(token)), label); await draw(); }));
       $('#openLnk', view).addEventListener('click', () => { const v = $('#lnk', view).value.trim(); const i = v.indexOf('#/relay/'); if (i < 0) return toast('#/relay/ 가 들어 있는 링크를 붙여넣으세요', 'bad'); location.hash = v.slice(i); });
       act('#mint', '발행', (c) => c.mint(who('#mTo'), num('#mAmt'), why('#mMemo', '발행자 직접 발행')));
+      readInbox().then(async ({ items }) => {
+        const ctx = {};
+        const sts = await Promise.all(items.map((it) => requestStatus(it.obj, it.v, ctx).catch(() => ['bad'])));
+        const wait = items.filter((_, i) => sts[i][0] === 'ready' || sts[i][0] === 'wait');
+        const el = $('#inboxSum', view);
+        if (!el) return;
+        const byKind = (k) => wait.filter((it) => it.obj.k === k).length;
+        el.innerHTML = wait.length
+          ? `<b>처리 대기 ${wait.length}건</b> — 입금 신고 ${byKind('notice')} · 대납 실행 ${byKind('fwd') + byKind('auth') + byKind('buy')} · ETH 요청 ${byKind('gas')}`
+          : '처리할 요청이 없습니다';
+      }).catch(() => { const el = $('#inboxSum', view); if (el) el.textContent = '우편함에 연결하지 못했습니다 — 링크로 받은 요청은 아래에 붙여넣어 여세요'; });
       act('#burn', '소각', (c) => c.burn(num('#bAmt'), why('#bMemo', '상환 처리')));
       act('#cfgMinter', '발행 한도 설정', (c) => c.configureMinter(who('#kTo'), num('#kAmt')));
       act('#rmMinter', '발행 담당 해제', (c) => c.removeMinter(who('#kTo')));

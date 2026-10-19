@@ -1,11 +1,48 @@
-import { chain, wallet, getContract, getEvents, writable, track } from '../core/chain.js';
+import { chain, wallet, getContract, writable, track } from '../core/chain.js';
 import { html, render, $, fmtNum, fmtTime, short, addrLink, explain, kv, verifyBox, tag, busy, won, toast } from '../core/ui.js';
-import { decodeRelay, verifyRelay, submitRelay } from '../core/relay.js';
+import { decodeRelay, verifyRelay, submitRelay, approveNotice, GAS_GIFT } from '../core/relay.js';
+import { requestStatus } from '../core/inbox.js';
 import { decodeInput, fmtArg } from '../core/abi.js';
 import { splitSig } from '../core/sigs.js';
 
 const E = () => globalThis.ethers;
-const KIND = { fwd: '대납 중계 요청 (ERC-2771)', auth: '서명 송금 (EIP-3009)', buy: '서명 결제 (EIP-3009)', notice: '입금 신고서 (블록체인 밖 서명)' };
+export const KIND = { fwd: '대납 중계 요청 (ERC-2771)', auth: '서명 송금 (EIP-3009)', buy: '서명 결제 (EIP-3009)', notice: '입금 신고서 (블록체인 밖 서명)', gas: '수수료용 ETH 요청 (블록체인 밖 서명)' };
+
+/** 요청 내용을 사람 말로 (요청함 목록과 개별 화면이 같이 씀) */
+export async function describeRequest(obj, { short: brief = false } = {}) {
+  if (obj.k === 'fwd') {
+    const dec = await decodeInput(obj.req.to, obj.req.data);
+    if (brief) return html`${addrLink(obj.req.from)} → ${addrLink(obj.req.to)} 의 <code>${dec?.name || '?'}</code>`;
+    return html`<p><b>${addrLink(obj.req.from)}</b> 가 ${addrLink(obj.req.to)} 의 <code>${dec?.name || '?'}</code> 함수를 자기 이름으로 실행해 달라고 서명했습니다.</p>
+      ${dec?.inputs ? html`<table class="kv"><tbody>${dec.inputs.map((inp, i) => html`<tr><td><code>${inp.name}</code></td><td class="break">${inp.type === 'address' ? addrLink(dec.args[i]) : fmtArg(inp, dec.args[i])}</td></tr>`)}</tbody></table>` : ''}`;
+  }
+  if (obj.k === 'auth') {
+    const a = obj.auth;
+    return html`${brief ? '' : '<p>'}<b>${addrLink(a.from)}</b> 가 <b>${addrLink(a.to)}</b> 에게 <b>${won(a.value)}</b> 를 보내는 데 서명했습니다.${brief ? '' : '</p>'}`;
+  }
+  if (obj.k === 'buy') {
+    const a = obj.auth;
+    const p = await (await getContract('Market')).getProduct(obj.productId).catch(() => null);
+    return html`${brief ? '' : '<p>'}<b>${addrLink(a.from)}</b> 가 상품 <a href="#/shop/p/${obj.productId}">${p ? p.name : '#' + obj.productId}</a> ${obj.quantity}개를 <b>${won(a.value)}</b> 에 사는 데 서명했습니다. ${obj.note ? `요청사항: “${obj.note}”` : ''}${brief ? '' : '</p>'}`;
+  }
+  if (obj.k === 'notice') {
+    const n = obj.notice;
+    return html`${brief ? '' : '<p>'}<b>${addrLink(n.account)}</b> 가 <b>${won(n.amount)}</b> 입금을 신고했습니다. 메모: “${n.memo}” · 신고 시각 ${fmtTime(n.issuedAt)}${brief ? '' : '</p>'}
+      ${brief ? '' : html`<p class="small muted">실제 스테이블코인이라면 발행사가 은행 계좌에 이 금액이 정말 들어왔는지 확인한 뒤에만 발행합니다. 그 확인은 블록체인 밖의 일이라 코드가 대신하지 못합니다.</p>`}`;
+  }
+  if (obj.k === 'gas') {
+    return html`${brief ? '' : '<p>'}<b>${addrLink(obj.gas.account)}</b> 가 직접 거래해 보려고 수수료용 ETH 를 요청했습니다. (보내면 ${GAS_GIFT} ETH)${brief ? '' : '</p>'}`;
+  }
+  return '알 수 없는 요청';
+}
+
+/** 상태 표시 배지 */
+export function statusTag(obj, s) {
+  if (s === 'ready') return tag(obj.k === 'notice' || obj.k === 'gas' ? '미처리' : '실행 가능', 'ok');
+  if (s === 'used') return tag(obj.k === 'notice' ? '발행됨' : obj.k === 'gas' ? '처리됨' : '사용됨');
+  if (s === 'wait') return tag('순서 대기', 'warn');
+  return tag(s === 'expired' ? '만료' : '오류', 'bad');
+}
 
 export default {
   title: '대납 요청',
@@ -17,47 +54,20 @@ export default {
     const sym = 'sgw';
 
     // 무엇을 하려는 요청인지
-    let what = '', status = null;
-    if (obj.k === 'fwd') {
-      const dec = await decodeInput(obj.req.to, obj.req.data);
-      what = html`<p><b>${addrLink(obj.req.from)}</b> 가 ${addrLink(obj.req.to)} 의 <code>${dec?.name || '?'}</code> 함수를 자기 이름으로 실행해 달라고 서명했습니다.</p>
-        ${dec?.inputs ? html`<table class="kv"><tbody>${dec.inputs.map((inp, i) => html`<tr><td><code>${inp.name}</code></td><td class="break">${inp.type === 'address' ? addrLink(dec.args[i]) : fmtArg(inp, dec.args[i])}</td></tr>`)}</tbody></table>` : ''}`;
-      const f = await getContract('Forwarder');
-      const n = await f.nonces(obj.req.from);
-      const expired = Number(obj.req.deadline) < Date.now() / 1000;
-      status = n > BigInt(obj.req.nonce) ? ['used', '이미 실행됐거나, 이 사람이 이후 다른 요청을 먼저 실행해 무효가 됐습니다'] : expired ? ['expired', '유효기간이 지났습니다'] : ['ready', '실행 가능'];
-    } else if (obj.k === 'auth' || obj.k === 'buy') {
-      const a = obj.auth;
-      if (obj.k === 'auth') what = html`<p><b>${addrLink(a.from)}</b> 가 <b>${addrLink(a.to)}</b> 에게 <b>${won(a.value)}</b> 를 보내는 데 서명했습니다.</p>`;
-      else {
-        const m = await getContract('Market');
-        const p = await m.getProduct(obj.productId).catch(() => null);
-        what = html`<p><b>${addrLink(a.from)}</b> 가 상품 <a href="#/shop/p/${obj.productId}">${p ? p.name : '#' + obj.productId}</a> ${obj.quantity}개를 <b>${won(a.value)}</b> 에 사는 데 서명했습니다. ${obj.note ? `요청사항: “${obj.note}”` : ''}</p>`;
-      }
-      const t = await getContract('Seogilwon');
-      const used = await t.authorizationState(a.from, a.nonce);
-      const expired = Number(a.validBefore) < Date.now() / 1000;
-      status = used ? ['used', '이미 사용된 서명입니다 (한 번만 쓸 수 있음)'] : expired ? ['expired', '유효기간이 지났습니다'] : ['ready', '실행 가능'];
-    } else if (obj.k === 'notice') {
-      const n = obj.notice;
-      what = html`<p><b>${addrLink(n.account)}</b> 가 <b>${won(n.amount)}</b> 입금을 신고했습니다. 메모: “${n.memo}” · 신고 시각 ${fmtTime(n.issuedAt)}</p>
-        <p class="small muted">실제 스테이블코인이라면 발행사가 은행 계좌에 이 금액이 정말 들어왔는지 확인한 뒤에만 발행합니다. 그 확인은 블록체인 밖의 일이라 코드가 대신하지 못합니다.</p>`;
-      // 같은 신고서로 두 번 발행하지 않도록: 발행 메모에 신고서 지문(서명 대상 해시)을 남기고, 이미 있는지 찾아봄
-      const mints = await getEvents(await getContract('Seogilwon'), 'Mint');
-      const done = mints.find(({ ev }) => ev.args.memo.includes(v.digest));
-      status = done ? ['used', html`이미 이 신고서로 발행했습니다 — <a href="#/tx/${done.log.transactionHash}">발행 거래</a>`] : ['ready', '아직 발행하지 않은 신고서'];
-    }
+    const what = await describeRequest(obj);
+    const st = await requestStatus(obj, v);
+    const status = [st[0], st[2] ? html`${st[1]} — <a href="#/tx/${st[2]}">발행 거래</a>` : st[1]];
     const s = splitSig(obj.sig);
     const isMinter = wallet.address ? await (await getContract('Seogilwon')).isMinter(wallet.address) : false;
 
     render(view, html`
       <div class="page-head"><div><h1>${obj.k === 'notice' ? '입금 신고 확인' : '대납 요청'}</h1><div class="sub">${KIND[obj.k]} · ${obj.label}</div></div></div>
       <div class="card"><h2>요청 내용</h2>${what}
-        ${status ? html`<p>${status[0] === 'ready' ? tag(obj.k === 'notice' ? '미처리' : '실행 가능', 'ok') : tag(status[0] === 'used' ? (obj.k === 'notice' ? '발행됨' : '사용됨') : '만료', 'bad')} <span class="small muted">${status[1]}</span></p>` : ''}
+        <p>${statusTag(obj, status[0])} <span class="small muted">${status[1]}</span></p>
         <div class="row" style="margin-top:10px">
           ${obj.k === 'notice'
             ? html`<button class="btn btn-primary" id="mintBtn" ${isMinter && status[0] === 'ready' ? '' : 'disabled'}>입금 확인 → ${won(obj.notice.amount)} 발행</button>${isMinter ? '' : html`<span class="small muted">발행 담당자 지갑으로 연결해야 합니다</span>`}`
-            : html`<button class="btn btn-primary" id="relayBtn" ${status?.[0] === 'ready' && v.ok ? '' : 'disabled'}>수수료 내고 대신 올리기</button>
+            : html`<button class="btn btn-primary" id="relayBtn" ${status[0] === 'ready' && v.ok ? '' : 'disabled'}>${obj.k === 'gas' ? `ETH ${GAS_GIFT} 보내기` : '수수료 내고 대신 올리기'}</button>
                ${wallet.address ? '' : html`<span class="small muted">MetaMask 연결 + 수수료용 ETH 가 필요합니다</span>`}`}
         </div>
         <div id="result"></div>
@@ -83,8 +93,7 @@ export default {
         <span class="small muted">— 보낸 사람(수수료)은 당신, 실제 행위자는 서명한 사람으로 기록됩니다.</span></p>`);
     }));
     $('#mintBtn', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
-      const t = await writable(await getContract('Seogilwon'));
-      const r = await track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신고 ${v.digest} 확인`), '발행');
+      const r = await approveNotice(obj);
       render($('#result', view), html`<p style="margin-top:10px">${r.status === 1 ? tag('발행 완료', 'ok') : tag('실패', 'bad')} <a href="#/tx/${r.hash}">거래 해부에서 보기 →</a></p>`);
     }));
   },

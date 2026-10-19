@@ -25,6 +25,10 @@ export const TYPES = {
   DepositNotice: [
     { name: 'account', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'memo', type: 'string' }, { name: 'issuedAt', type: 'uint256' },
   ],
+  // 블록체인에 올라가지 않는 '수수료용 ETH 요청' (직접 거래해 보고 싶은 참여자가 발행자에게)
+  GasRequest: [
+    { name: 'account', type: 'address' }, { name: 'issuedAt', type: 'uint256' },
+  ],
 };
 
 export const forwarderDomain = (chainId, address) => ({ name: FORWARDER_NAME, version: '1', chainId, verifyingContract: address });

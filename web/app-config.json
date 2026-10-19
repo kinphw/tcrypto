@@ -21,6 +21,10 @@
       }
     ]
   },
+  "inbox": {
+    "url": "https://ntfy.sh",
+    "topic": "cheongna-sgw-11155111-b4cf76b5"
+  },
   "issuer": "0xDc095654E1bbFef7bCaf774422c565EBb49ce9d1",
   "contracts": {
     "CoinFactory": "0x5421ced3D90AEf7080D2e7077BC60ccC11E0156b",

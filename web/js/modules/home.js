@@ -1,6 +1,6 @@
 import { chain, wallet, getContract, getEvents, writable, connectWallet, switchNetwork, watchToken, loadMembers, blockTime } from '../core/chain.js';
 import { isMobile, metamaskDeepLink, html, render, $, fmtUnits, timeAgo, txLink, addrLink, explain, tag, stat, busy, toast, won, scan, errMsg } from '../core/ui.js';
-import { perform, signForward, signTransfer, signNotice, showRelayLink, getFeePref, setFeePref, feeMode } from '../core/relay.js';
+import { perform, signForward, signTransfer, signNotice, signGasRequest, GAS_GIFT, showRelayLink, getFeePref, setFeePref, feeMode } from '../core/relay.js';
 
 const E = () => globalThis.ethers;
 
@@ -95,8 +95,9 @@ export default {
 
         <div class="card">
           <div class="card-head"><h2>수수료 방식</h2><span id="feeSeg"></span><span class="small muted">지금: <b>${mode === 'direct' ? '내가 ETH 로 냄' : '서명만 하고 대납 요청'}</b></span></div>
-          <p class="small muted">블록체인에 무엇을 기록하든 ETH 수수료가 듭니다. <b>대납 요청</b>을 고르면 MetaMask 로 서명만 하고(수수료 0), 서명을 담은 링크를 발행자에게 보내 대신 올리게 합니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
+          <p class="small muted">블록체인에 무엇을 기록하든 ETH 수수료가 듭니다. <b>대납 요청</b>을 고르면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">공개 요청함</a>에 자동으로 들어가 발행자가 대신 올립니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
             <b>자동</b>은 ETH 가 있으면 직접, 없으면 대납입니다.</p>
+          ${eth === 0n ? html`<div class="row" style="margin-top:8px"><button class="btn" id="askGas">수수료용 ETH 요청하기</button><span class="small muted">직접 거래해 보고 싶다면. 서명만 하면 요청함에 들어가고, 발행자가 ${GAS_GIFT} ETH 를 보내 줍니다 (수백 번 쓸 수 있는 양).</span></div>` : ''}
         </div>
 
         <div class="card">
@@ -104,7 +105,7 @@ export default {
             <li class="done"><div><b>MetaMask 연결</b> <span class="muted small">${net.name}</span></div></li>
             <li class="${nick ? 'done' : ''}"><div><b>닉네임으로 가입</b> ${nick ? html`<span class="muted small">${nick}</span>` : html`
               <div class="row" style="margin-top:6px"><input id="nick" maxlength="30" placeholder="닉네임 (나중에 못 바꿉니다)"><button class="btn btn-primary" id="join">가입</button></div>`}</div></li>
-            <li class="${sgw > 0n ? 'done' : ''}"><div><b>입금 신고 → 발행</b><br><span class="small">실제 스테이블코인처럼, 은행에 원화를 넣었다고 <b>신고서에 서명</b>해 발행자에게 보내면 발행자가 확인 후 발행합니다. 신고서는 블록체인에 올라가지 않아 수수료가 없습니다.</span>
+            <li class="${sgw > 0n ? 'done' : ''}"><div><b>입금 신고 → 발행</b><br><span class="small">실제 스테이블코인처럼, 은행에 원화를 넣었다고 <b>신고서에 서명</b>하면 요청함으로 발행자에게 가고, 발행자가 확인 후 발행합니다. 신고서는 블록체인에 올라가지 않아 수수료가 없습니다.</span>
               <div class="row" style="margin-top:6px"><input id="depAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><input id="depMemo" placeholder="메모 (예: 입금자명)" style="flex:1;min-width:120px"><button class="btn btn-primary" id="dep">신고서 서명</button></div></div></li>
             <li><div><b>사용하기</b> — <a href="#/send">송금</a> · <a href="#/shop">상점가</a> · <a href="#/coins">내 코인 발행</a></div></li>
           </ol>
@@ -140,6 +141,9 @@ export default {
         if (!/^\d+$/.test(v) || BigInt(v) <= 0n) throw new Error('금액을 1 sgw 이상 정수로 입력하세요');
         return BigInt(v);
       };
+      $('#askGas', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
+        await showRelayLink(await signGasRequest(), { to: '발행자' });
+      }));
       $('#dep', view).addEventListener('click', (ev) => busy(ev.target, async () => {
         const obj = await signNotice(amount('#depAmt'), $('#depMemo', view).value.trim());
         await showRelayLink(obj, { to: '발행자' });

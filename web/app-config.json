@@ -5,13 +5,30 @@
     "name": "Sepolia",
     "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
     "explorer": "https://sepolia.etherscan.io",
-    "currency": { "name": "Sepolia Ether", "symbol": "SepoliaETH", "decimals": 18 },
+    "currency": {
+      "name": "Sepolia Ether",
+      "symbol": "SepoliaETH",
+      "decimals": 18
+    },
     "faucets": [
-      { "name": "Google Cloud 세폴리아 배급처", "url": "https://cloud.google.com/application/web3/faucet/ethereum/sepolia" },
-      { "name": "Alchemy 세폴리아 배급처", "url": "https://www.alchemy.com/faucets/ethereum-sepolia" }
+      {
+        "name": "Google Cloud 세폴리아 배급처",
+        "url": "https://cloud.google.com/application/web3/faucet/ethereum/sepolia"
+      },
+      {
+        "name": "Alchemy 세폴리아 배급처",
+        "url": "https://www.alchemy.com/faucets/ethereum-sepolia"
+      }
     ]
   },
-  "issuer": null,
-  "contracts": null,
-  "deployBlock": null
+  "issuer": "0xDc095654E1bbFef7bCaf774422c565EBb49ce9d1",
+  "contracts": {
+    "CoinFactory": "0x5421ced3D90AEf7080D2e7077BC60ccC11E0156b",
+    "Market": "0x4AAdceCf769264f2A6e03d4e2b886FA7f06381d7",
+    "Members": "0x5Fae9b3f263B4E53Fa301eC5595C825518059b55",
+    "Seogilwon": "0xb4cf76b5718fD76946DA44202173044354aA2359",
+    "SeogilwonV1": "0x180A75cDCBb19f9fe1909EaE867db937B96b5a9F",
+    "Forwarder": "0x8cA0dC76dF469d87bc0Fd7D02035D1F47A9F1D89"
+  },
+  "deployBlock": 11946300
 }

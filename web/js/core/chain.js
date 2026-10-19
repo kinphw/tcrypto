@@ -193,7 +193,7 @@ async function syncWallet() {
   const [accts, cid] = await Promise.all([eth.request({ method: 'eth_accounts' }), eth.request({ method: 'eth_chainId' })]);
   wallet.address = accts[0] ? E().getAddress(accts[0]) : null;
   wallet.chainOk = Number(cid) === chain.cfg.network.chainId;
-  wallet.signer = wallet.address && wallet.chainOk ? await new (E().BrowserProvider)(eth).getSigner(wallet.address) : null;
+  wallet.signer = wallet.address && wallet.chainOk ? withFeeHint(await new (E().BrowserProvider)(eth).getSigner(wallet.address)) : null;
 }
 
 export async function initWallet() {
@@ -232,6 +232,25 @@ export async function switchNetwork() {
 /** MetaMask 화면에 서길원(또는 친구 코인)을 표시하도록 등록 */
 export async function watchToken(address, symbol) {
   return window.ethereum.request({ method: 'wallet_watchAsset', params: { type: 'ERC20', options: { address, symbol: symbol.slice(0, 11), decimals: 0 } } });
+}
+
+// MetaMask 는 수수료 단가를 넉넉히(약 1.5 gwei) 잡아, 세폴리아처럼 한산한 망에서도 '잔액 부족'으로 확인 버튼을 막곤 한다.
+// 그래서 사이트가 지금 블록의 기본 수수료를 보고 단가를 직접 제안한다 (MetaMask 에서는 '사이트 제안'으로 표시, 바꿀 수 있음).
+const MIN_TIP = 20_000_000n; // 0.02 gwei
+async function feeHint() {
+  const [blk, tip] = await Promise.all([chain.provider.getBlock('latest'), rpc('eth_maxPriorityFeePerGas').then(BigInt).catch(() => 0n)]);
+  const maxPriorityFeePerGas = tip > MIN_TIP ? tip : MIN_TIP;
+  return { maxPriorityFeePerGas, maxFeePerGas: (blk?.baseFeePerGas ?? 0n) * 2n + maxPriorityFeePerGas };
+}
+function withFeeHint(signer) {
+  const send = signer.sendTransaction.bind(signer);
+  signer.sendTransaction = async (tx) => {
+    if (tx.maxFeePerGas == null && tx.gasPrice == null) {
+      try { tx = { ...tx, ...(await feeHint()) }; } catch {} // 못 구하면 MetaMask 에 맡김
+    }
+    return send(tx);
+  };
+  return signer;
 }
 
 export function requireWallet() {

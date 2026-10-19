@@ -1,5 +1,6 @@
 import { chain, wallet, getContract, getEvents, writable, connectWallet, switchNetwork, watchToken, loadMembers, blockTime } from '../core/chain.js';
 import { isMobile, metamaskDeepLink, html, render, $, fmtUnits, timeAgo, txLink, addrLink, explain, tag, stat, busy, toast, won, scan, errMsg } from '../core/ui.js';
+import { readInbox, requestStatus } from '../core/inbox.js';
 import { perform, signForward, signTransfer, signNotice, signGasRequest, GAS_GIFT, showRelayLink, getFeePref, setFeePref, feeMode } from '../core/relay.js';
 
 const E = () => globalThis.ethers;
@@ -84,28 +85,42 @@ export default {
       const isIssuer = me.toLowerCase() === chain.cfg.issuer?.toLowerCase();
       const mode = await feeMode();
 
+      const has = sgw > 0n;
+      const tiles = html`<div class="tiles ${has ? '' : 'off'}">
+        <a class="tile" href="#/shop"><span class="t-ico">MKT</span><b>상점가 둘러보기</b><span>친구들이 올린 상품을 서길원으로 사기</span></a>
+        <a class="tile" href="#/send"><span class="t-ico">SND</span><b>보내기</b><span>친구 주소로 서길원 송금</span></a>
+        <a class="tile" href="#/shop/mine"><span class="t-ico">SHP</span><b>내 상점 열기</b><span>상품을 올리고 팔아서 서길원 벌기</span></a>
+        <a class="tile" href="#/coins"><span class="t-ico">MNT</span><b>내 코인 만들기</b><span>나만의 포인트를 발행해 보기</span></a>
+      </div>`;
+      const depForm = (primary) => html`<div class="row" style="margin-top:8px"><input id="depAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><input id="depMemo" placeholder="메모 (선택)" style="flex:1;min-width:110px"><button class="btn ${primary ? 'btn-primary' : ''}" id="dep">입금 신청</button></div>`;
+
       render(view, html`
         <div class="page-head"><div><h1>${nick ? `${nick} 님의 지갑` : '내 지갑'} ${isIssuer ? tag('발행자', 'info') : ''} ${black ? tag('블랙리스트', 'bad') : ''} ${paused ? tag('전체 거래 정지 중', 'warn') : ''}</h1>
           <div class="sub">${addrLink(me, { full: true, copy: true })} ${scan('address', me)}</div></div></div>
 
-        <div class="stats">
-          <div class="stat"><div class="label">서길원 sgw</div><div class="big-num">${won(sgw)}</div><div class="hint"><button class="btn small" id="watch">MetaMask 에 표시하기</button></div></div>
-          ${stat(`수수료용 ${net.currency.symbol}`, fmtUnits(eth, 18, 6), eth > 0n ? '있으면 내가 수수료를 냄' : '없어도 됨 — 발행자가 대신 냄')}
+        <div class="balance">
+          <div><div class="label">내 서길원</div><div class="amt">${won(sgw)}</div></div>
+          <div class="side"><button class="btn small" id="watch">MetaMask 에 표시하기</button>
+            <span class="small muted">수수료용 ${net.currency.symbol} ${fmtUnits(eth, 18, 6)}${eth > 0n ? '' : ' · 없어도 됨'}</span></div>
         </div>
+        <div id="myReq"></div>
 
-        <div class="card">
-          <ol class="steps">
-            <li class="done"><div><b>지갑 연결</b> <span class="muted small">MetaMask · ${net.name}</span></div></li>
-            <li class="${sgw > 0n ? 'done' : ''}"><div><b>입금 신청</b> <span class="muted small">원화 → 서길원</span><br>
-              <span class="small muted">은행에 원화를 넣었다고 신청서에 서명하면 발행자에게 자동으로 가고, 발행자가 확인하면 그만큼 서길원이 들어옵니다. (실험이라 실제 입금은 안 해도 돼요)</span>
-              <div class="row" style="margin-top:6px"><input id="depAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><input id="depMemo" placeholder="메모 (선택)" style="flex:1;min-width:110px"><button class="btn btn-primary" id="dep">입금 신청</button></div></div></li>
-            <li class="${sgw > 0n ? '' : 'muted'}"><div><b>사용</b> — <a href="#/send">송금</a> · <a href="#/shop">상점가</a> · <a href="#/coins">내 코인 만들기</a></div></li>
-            <li><div><b>환매 신청</b> <span class="muted small">서길원 → 원화</span><br>
-              <span class="small muted">서길원을 발행사(${addrLink(chain.cfg.issuer)})에 돌려주면, 발행사가 원화를 돌려주고(블록체인 밖) 받은 서길원을 소각합니다.</span>
-              <div class="row" style="margin-top:6px"><input id="redAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><button class="btn" id="red" ${sgw > 0n ? '' : 'disabled'}>환매 신청</button></div></div></li>
-          </ol>
-          <p class="small muted" style="margin-top:8px">실제 원화 스테이블코인(USDC 등)도 똑같이 <b>입금 → 발행 → 자유롭게 사용 → 환매 → 소각</b> 순서로 돌아갑니다.</p>
-        </div>
+        ${has ? html`
+          <div class="card"><h2>이제 써 보세요</h2>${tiles}</div>
+          <div class="grid grid-2">
+            <div class="card"><h2>입금 신청 <span class="muted small">더 받기 · 원화 → 서길원</span></h2>
+              <p class="small muted">신청서에 서명하면 발행자에게 자동으로 가고, 확인되면 서길원이 들어옵니다.</p>${depForm(false)}</div>
+            <div class="card"><h2>환매 신청 <span class="muted small">서길원 → 원화</span></h2>
+              <p class="small muted">서길원을 발행사에 돌려주면 원화를 돌려받고(블록체인 밖), 발행사는 받은 서길원을 소각합니다.</p>
+              <div class="row" style="margin-top:8px"><input id="redAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><button class="btn" id="red">환매 신청</button></div></div>
+          </div>`
+        : html`
+          <div class="card start"><h2>먼저, 입금 신청</h2>
+            <p>은행에 원화를 넣었다고 <b>신청서에 서명</b>하면 발행자에게 자동으로 가고, 발행자가 확인하면 그만큼 <b>서길원</b>이 들어옵니다. (실험이라 실제 입금은 안 해도 돼요)</p>
+            ${depForm(true)}</div>
+          <div class="card"><h2>서길원이 들어오면 할 수 있는 것</h2>${tiles}</div>`}
+
+        <p class="small muted flowline">실제 원화 스테이블코인도 <b>입금 → 발행 → 사용 → 환매 → 소각</b> 순서로 돌아갑니다.</p>
 
         <div class="card"><div class="card-head"><h2>최근 입출금</h2><a class="small" href="#/address/${me}">전체 보기 →</a></div><div id="hist" class="loading">불러오는 중…</div></div>
 
@@ -121,6 +136,19 @@ export default {
       `);
       $('#feeSeg', view).appendChild(feeToggle(() => draw()));
 
+      // 요청함에 아직 처리 안 된 내 요청이 있으면 위쪽에 알려 줌 (발행자를 기다리는 중이라는 걸 알 수 있게)
+      readInbox().then(async ({ items }) => {
+        const mine = items.filter((it) => it.v.expected.toLowerCase() === me.toLowerCase());
+        const ctx = {};
+        const waiting = [];
+        for (const it of mine) { const st = await requestStatus(it.obj, it.v, ctx).catch(() => ['bad']); if (st[0] === 'ready' || st[0] === 'wait') waiting.push(it); }
+        const el = $('#myReq', view);
+        if (!el || !waiting.length) return;
+        render(el, html`<div class="verify warn"><div class="vtitle">발행자 처리를 기다리는 중 ${waiting.length}건</div>
+          <ul class="small" style="margin:6px 0 0;padding-left:18px">${waiting.map((it) => html`<li>${it.obj.label} <span class="muted">· ${timeAgo(it.time)}</span></li>`)}</ul>
+          <div class="small muted" style="margin-top:4px">처리되면 잔액에 바로 반영됩니다. <a href="#/inbox">요청함에서 보기 →</a></div></div>`);
+      }).catch(() => {});
+
       $('#watch', view).addEventListener('click', () => watchToken(chain.cfg.contracts.Seogilwon, 'sgw').then((ok) => ok && toast('MetaMask 에 sgw 를 추가했습니다', 'ok')).catch((e) => toast(errMsg(e), 'bad')));
       const amount = (id) => {
         const v = $(id, view).value.trim();
@@ -134,7 +162,7 @@ export default {
         const obj = await signNotice(amount('#depAmt'), $('#depMemo', view).value.trim());
         await showRelayLink(obj, { to: '발행자' });
       }));
-      $('#red', view).addEventListener('click', (ev) => busy(ev.target, async () => {
+      $('#red', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
         const a = amount('#redAmt');
         if (a > sgw) throw new Error(`잔액이 부족합니다 (보유 ${won(sgw)})`);
         const r = await perform({

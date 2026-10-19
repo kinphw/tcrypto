@@ -301,3 +301,26 @@ pre.code.nowrap { white-space: pre; word-break: normal; }
   .flow { grid-template-columns: 1fr; }
   .flow li:not(:last-child)::after { content: '↓'; right: 50%; top: auto; bottom: -13px; transform: translateX(50%); }
 }
+
+/* 내 지갑: 잔액 → 다음에 할 일(타일) 순서로 */
+.balance { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; border: 1px solid var(--text); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; background: var(--surface); }
+.balance .label { font: 600 12px/1 var(--mono); letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.balance .amt { font: 700 clamp(30px, 7vw, 44px)/1.15 var(--mono); margin-top: 6px; word-break: break-all; }
+.balance .side { display: grid; gap: 6px; justify-items: end; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.tile { display: grid; gap: 4px; align-content: start; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-decoration: none; background: var(--surface); min-width: 0; transition: background .12s, color .12s; }
+.tile b { font-size: 16px; }
+.tile span:last-child { font-size: 13px; color: var(--muted); }
+.tile .t-ico { font: 600 11px/1 var(--mono); letter-spacing: .08em; color: var(--muted); }
+.tile:hover, .tile:focus-visible { background: var(--text); color: var(--bg); }
+.tile:hover span, .tile:focus-visible span { color: inherit; opacity: .8; }
+.tiles.off .tile { opacity: .45; pointer-events: none; }
+.card.start { border: 2px solid var(--text); }
+.flowline { margin: 4px 2px 14px; }
+.verify.warn { border-left-color: var(--text); border-style: dashed; }
+@media (max-width: 600px) {
+  .balance .side { justify-items: start; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .tile { padding: 12px; }
+  .tile b { font-size: 15px; }
+}

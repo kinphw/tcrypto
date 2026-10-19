@@ -280,12 +280,29 @@ export async function track(txPromise, label = '거래', { quiet = false } = {})
   return r;
 }
 
+// 브라우저는 뒤에 숨은 탭의 setTimeout 을 느리게(5분 넘게 숨으면 1분에 한 번) 돌린다.
+// Worker 안의 타이머는 그렇게 느려지지 않으므로, 기다리기는 Worker 에게 맡긴다 (자동 처리기가 숨은 탭에서도 제 속도로 돌도록).
+let sleeper = null;
+const sleepers = new Map();
+let sleepSeq = 0;
+export function sleep(ms) {
+  try {
+    if (!sleeper) {
+      sleeper = new Worker(URL.createObjectURL(new Blob(['onmessage = (e) => setTimeout(() => postMessage(e.data.id), e.data.ms);'], { type: 'text/javascript' })));
+      sleeper.onmessage = (e) => { sleepers.get(e.data)?.(); sleepers.delete(e.data); };
+    }
+    return new Promise((res) => { const id = ++sleepSeq; sleepers.set(id, res); sleeper.postMessage({ id, ms }); });
+  } catch {
+    return new Promise((res) => setTimeout(res, ms));
+  }
+}
+
 export async function waitReceipt(hash, timeoutMs = 300000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     const r = await rpc('eth_getTransactionReceipt', [hash]).catch(() => null);
     if (r) return { ...r, hash, status: Number(r.status), blockNumber: Number(r.blockNumber) };
-    await new Promise((res) => setTimeout(res, 2500));
+    await sleep(2500);
   }
   throw new Error('5분 동안 블록에 담기지 않았습니다. MetaMask 활동 탭에서 상태를 확인하세요.');
 }

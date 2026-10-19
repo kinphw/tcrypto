@@ -59,7 +59,25 @@ function drawStatus(ok = true) {
   el.title = `읽기 전용 공개 노드: ${chain.provider._getConnection().url}`;
 }
 
+// MetaMask 의 '스마트 계정'(EIP-7702)이 켜지면 지갑 주소에 MetaMask 프로그램이 붙고(코드 0xef0100…), MetaMask 가 거래를 감싸 보내 실패하거나 엉뚱하게 처리될 수 있다
+let smartChecked = null;
+async function checkSmartAccount() {
+  const a = wallet.address;
+  document.getElementById('smartBar')?.remove();
+  if (!a || !wallet.chainOk || smartChecked === a) return;
+  smartChecked = a;
+  const code = await rpc('eth_getCode', [a, 'latest']).catch(() => '0x');
+  if (!String(code).toLowerCase().startsWith('0xef0100')) return;
+  const bar = document.createElement('div');
+  bar.id = 'smartBar';
+  bar.className = 'mm-bar';
+  bar.innerHTML = '<span><b>이 지갑이 MetaMask ‘스마트 계정’으로 바뀌어 있습니다.</b> MetaMask 가 거래를 감싸 보내 실패하거나 반영이 안 될 수 있어요. MetaMask <b>설정 → 스마트 계정 → ' + esc(chain.cfg.network.name) + '</b> 스위치를 끄세요 (확인 1번).</span>';
+  view.before(bar);
+}
+
 function drawWallet() {
+  smartChecked = null;
+  checkSmartAccount();
   const b = $('#walletBtn');
   if (!wallet.installed) { b.className = 'btn'; b.textContent = 'MetaMask 설치 필요'; return; }
   if (!wallet.address) { b.className = 'btn btn-primary'; b.textContent = 'MetaMask 연결'; return; }

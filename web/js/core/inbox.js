@@ -88,10 +88,10 @@ export async function requestStatus(obj, v, ctx = {}) {
     return Number(obj.auth.validBefore) < nowSec ? ['expired', '유효기간이 지났습니다'] : ['ready', '아직 안 올림 — 지금 올릴 수 있음'];
   }
   if (obj.k === 'notice') {
-    // 같은 신고서로 두 번 발행하지 않도록 발행 메모에 신고서 지문(서명 대상 해시)을 남긴다
+    // 같은 신청서로 두 번 발행하지 않도록 발행 메모에 신청서 지문(서명 대상 해시)을 남긴다
     ctx.mints ??= await getEvents(await getContract('Seogilwon'), 'Mint');
     const done = ctx.mints.find(({ ev }) => ev.args.memo.includes(v.digest));
-    return done ? ['used', '이 신고서로 이미 발행했습니다', done.log.transactionHash] : ['ready', '아직 발행하지 않은 신고서'];
+    return done ? ['used', '이 신청서로 이미 발행했습니다', done.log.transactionHash] : ['ready', '아직 발행하지 않은 신청서'];
   }
   if (obj.k === 'gas') {
     const bal = await chain.provider.getBalance(obj.gas.account);

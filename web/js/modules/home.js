@@ -9,10 +9,10 @@ export function notReady(view) {
     <p>발행자가 <a href="#/issuer">발행자 · 감독</a> 화면에서 처음 설정(컨트랙트 배포)을 마치면 열립니다.</p></div>`);
 }
 
-/** 수수료 방식 선택: 자동 / 내가 냄 / 대납 요청 */
+/** 수수료 방식 선택: 자동 / 내가 냄 / 발행자가 냄 */
 export function feeToggle(onChange) {
   const pref = getFeePref();
-  const opt = [['auto', '자동'], ['direct', '내가 냄'], ['gasless', '대납 요청']];
+  const opt = [['auto', '자동'], ['direct', '내가 냄'], ['gasless', '발행자가 냄']];
   const el = document.createElement('div');
   el.className = 'seg';
   el.innerHTML = opt.map(([k, l]) => `<button data-m="${k}" class="${pref === k ? 'on' : ''}">${l}</button>`).join('');
@@ -78,8 +78,9 @@ export default {
       if (!chain.ready) return notReady(view);
       const me = wallet.address;
       const net = chain.cfg.network;
-      const [token, members] = await Promise.all([getContract('Seogilwon'), getContract('Members')]);
-      const [sgw, eth, nick, black, paused] = await Promise.all([token.balanceOf(me), chain.provider.getBalance(me), members.nameOf(me), token.isBlacklisted(me), token.paused()]);
+      const token = await getContract('Seogilwon');
+      const [sgw, eth, black, paused] = await Promise.all([token.balanceOf(me), chain.provider.getBalance(me), token.isBlacklisted(me), token.paused()]);
+      const nick = chain.members[me.toLowerCase()]; // 예전에 등록한 이름표가 있으면 표시만
       const isIssuer = me.toLowerCase() === chain.cfg.issuer?.toLowerCase();
       const mode = await feeMode();
 
@@ -89,53 +90,38 @@ export default {
 
         <div class="stats">
           <div class="stat"><div class="label">서길원 sgw</div><div class="big-num">${won(sgw)}</div><div class="hint"><button class="btn small" id="watch">MetaMask 에 표시하기</button></div></div>
-          ${stat(`수수료용 ${net.currency.symbol}`, fmtUnits(eth, 18, 6), eth > 0n ? '직접 거래할 때 씀' : '없어도 대납으로 사용 가능')}
-          ${stat('닉네임', nick || '미가입')}
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h2>수수료 방식</h2><span id="feeSeg"></span><span class="small muted">지금: <b>${mode === 'direct' ? '내가 ETH 로 냄' : '서명만 하고 대납 요청'}</b></span></div>
-          <p class="small muted">블록체인에 무엇을 기록하든 ETH 수수료가 듭니다. <b>대납 요청</b>을 고르면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">공개 요청함</a>에 자동으로 들어가 발행자가 대신 올립니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
-            <b>자동</b>은 ETH 가 있으면 직접, 없으면 대납입니다.</p>
-          ${eth === 0n ? html`<div class="row" style="margin-top:8px"><button class="btn" id="askGas">수수료용 ETH 요청하기</button><span class="small muted">직접 거래해 보고 싶다면. 서명만 하면 요청함에 들어가고, 발행자가 ${GAS_GIFT} ETH 를 보내 줍니다 (수백 번 쓸 수 있는 양).</span></div>` : ''}
+          ${stat(`수수료용 ${net.currency.symbol}`, fmtUnits(eth, 18, 6), eth > 0n ? '있으면 내가 수수료를 냄' : '없어도 됨 — 발행자가 대신 냄')}
         </div>
 
         <div class="card">
           <ol class="steps">
-            <li class="done"><div><b>MetaMask 연결</b> <span class="muted small">${net.name}</span></div></li>
-            <li class="${nick ? 'done' : ''}"><div><b>닉네임으로 가입</b> ${nick ? html`<span class="muted small">${nick}</span>` : html`
-              <div class="row" style="margin-top:6px"><input id="nick" maxlength="30" placeholder="닉네임 (나중에 못 바꿉니다)"><button class="btn btn-primary" id="join">가입</button></div>`}</div></li>
-            <li class="${sgw > 0n ? 'done' : ''}"><div><b>입금 신고 → 발행</b><br><span class="small">실제 스테이블코인처럼, 은행에 원화를 넣었다고 <b>신고서에 서명</b>하면 요청함으로 발행자에게 가고, 발행자가 확인 후 발행합니다. 신고서는 블록체인에 올라가지 않아 수수료가 없습니다.</span>
-              <div class="row" style="margin-top:6px"><input id="depAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><input id="depMemo" placeholder="메모 (예: 입금자명)" style="flex:1;min-width:120px"><button class="btn btn-primary" id="dep">신고서 서명</button></div></div></li>
-            <li><div><b>사용하기</b> — <a href="#/send">송금</a> · <a href="#/shop">상점가</a> · <a href="#/coins">내 코인 발행</a></div></li>
+            <li class="done"><div><b>지갑 연결</b> <span class="muted small">MetaMask · ${net.name}</span></div></li>
+            <li class="${sgw > 0n ? 'done' : ''}"><div><b>입금 신청</b> <span class="muted small">원화 → 서길원</span><br>
+              <span class="small muted">은행에 원화를 넣었다고 신청서에 서명하면 발행자에게 자동으로 가고, 발행자가 확인하면 그만큼 서길원이 들어옵니다. (실험이라 실제 입금은 안 해도 돼요)</span>
+              <div class="row" style="margin-top:6px"><input id="depAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><input id="depMemo" placeholder="메모 (선택)" style="flex:1;min-width:110px"><button class="btn btn-primary" id="dep">입금 신청</button></div></div></li>
+            <li class="${sgw > 0n ? '' : 'muted'}"><div><b>사용</b> — <a href="#/send">송금</a> · <a href="#/shop">상점가</a> · <a href="#/coins">내 코인 만들기</a></div></li>
+            <li><div><b>환매 신청</b> <span class="muted small">서길원 → 원화</span><br>
+              <span class="small muted">서길원을 발행사(${addrLink(chain.cfg.issuer)})에 돌려주면, 발행사가 원화를 돌려주고(블록체인 밖) 받은 서길원을 소각합니다.</span>
+              <div class="row" style="margin-top:6px"><input id="redAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><button class="btn" id="red" ${sgw > 0n ? '' : 'disabled'}>환매 신청</button></div></div></li>
           </ol>
+          <p class="small muted" style="margin-top:8px">실제 원화 스테이블코인(USDC 등)도 똑같이 <b>입금 → 발행 → 자유롭게 사용 → 환매 → 소각</b> 순서로 돌아갑니다.</p>
         </div>
 
-        <div class="card">
-          <h2>상환 (서길원 → 원화)</h2>
-          <p class="small muted">발행사 주소(${addrLink(chain.cfg.issuer)})로 서길원을 보내면, 발행사가 원화를 돌려주고(블록체인 밖) 받은 서길원을 소각합니다. USDC 의 상환과 같은 흐름입니다.</p>
-          <div class="row"><input id="redAmt" type="number" min="1" step="1" placeholder="금액 (sgw)" style="flex:1;min-width:110px"><button class="btn" id="red">상환 요청</button></div>
-        </div>
+        <div class="card"><div class="card-head"><h2>최근 입출금</h2><a class="small" href="#/address/${me}">전체 보기 →</a></div><div id="hist" class="loading">불러오는 중…</div></div>
+
+        <details class="card"><summary><b>수수료 설정</b> <span class="small muted">— 지금: ${mode === 'direct' ? '내가 ETH 로 냄' : '발행자가 냄'} (바꿀 일 거의 없음)</span></summary>
+          <div class="row" style="margin-top:10px"><span id="feeSeg"></span></div>
+          <p class="small muted">블록체인에 기록할 때마다 ETH 수수료가 듭니다. <b>발행자가 냄</b>이면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">요청함</a>으로 가서 발행자가 수수료를 내고 올려 줍니다. 발행자는 내용을 바꿀 수 없습니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
+            <b>자동</b>은 ETH 가 있으면 내가, 없으면 발행자가 냅니다.</p>
+          ${eth === 0n ? html`<div class="row" style="margin-top:8px"><button class="btn" id="askGas">수수료용 ETH 요청하기</button><span class="small muted">발행자를 기다리지 않고 직접 해 보고 싶다면. 발행자가 ${GAS_GIFT} ETH 를 보내 줍니다.</span></div>` : ''}
+        </details>
 
         ${explain('MetaMask·이더스캔에서도 똑같이 보이나요?', html`<p>[MetaMask 에 표시하기]를 누르면 MetaMask 의 토큰 목록에 sgw 가 생기고 위와 같은 잔액이 보입니다. ${scan('address', me, '이더스캔')}에서 내 주소를 검색해도 같습니다.
           세 곳이 각자 블록체인 장부를 읽기 때문입니다.</p>`)}
-
-        <div class="card"><div class="card-head"><h2>최근 입출금</h2><a class="small" href="#/address/${me}">전체 보기 →</a></div><div id="hist" class="loading">불러오는 중…</div></div>
       `);
       $('#feeSeg', view).appendChild(feeToggle(() => draw()));
 
       $('#watch', view).addEventListener('click', () => watchToken(chain.cfg.contracts.Seogilwon, 'sgw').then((ok) => ok && toast('MetaMask 에 sgw 를 추가했습니다', 'ok')).catch((e) => toast(errMsg(e), 'bad')));
-      $('#join', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
-        const n = $('#nick', view).value.trim();
-        if (!n) throw new Error('닉네임을 입력하세요');
-        if (await members.addrOf(n) !== E().ZeroAddress) throw new Error('이미 누군가 쓰는 닉네임입니다');
-        const r = await perform({
-          label: `가입: ${n}`,
-          direct: async () => (await writable(members)).join(n),
-          gasless: () => signForward(members, 'join', [n], `가입: ${n}`),
-        });
-        if (r.mode === 'direct') { await loadMembers(); await draw(); }
-      }));
       const amount = (id) => {
         const v = $(id, view).value.trim();
         if (!/^\d+$/.test(v) || BigInt(v) <= 0n) throw new Error('금액을 1 sgw 이상 정수로 입력하세요');
@@ -152,9 +138,9 @@ export default {
         const a = amount('#redAmt');
         if (a > sgw) throw new Error(`잔액이 부족합니다 (보유 ${won(sgw)})`);
         const r = await perform({
-          label: `상환 요청 ${won(a)}`,
-          direct: async () => (await writable(token)).transferWithMemo(chain.cfg.issuer, a, '상환 요청'),
-          gasless: () => signTransfer(chain.cfg.issuer, a, `상환 요청 ${won(a)}`),
+          label: `환매 신청 ${won(a)}`,
+          direct: async () => (await writable(token)).transferWithMemo(chain.cfg.issuer, a, '환매 신청'),
+          gasless: () => signTransfer(chain.cfg.issuer, a, `환매 신청 ${won(a)}`),
         });
         if (r.mode === 'direct') await draw();
       }));
@@ -167,7 +153,7 @@ export default {
       const rows = await Promise.all(list.map(async ({ ev, log }) => {
         const out = ev.args.from.toLowerCase() === me.toLowerCase();
         const other = out ? ev.args.to : ev.args.from;
-        const kind = other === E().ZeroAddress ? (out ? '소각' : '발행') : shopTx.has(log.transactionHash) ? (out ? '상점 구매' : '상점 판매') : other.toLowerCase() === chain.cfg.issuer?.toLowerCase() && out ? '상환' : out ? '보냄' : '받음';
+        const kind = other === E().ZeroAddress ? (out ? '소각' : '발행') : shopTx.has(log.transactionHash) ? (out ? '상점 구매' : '상점 판매') : other.toLowerCase() === chain.cfg.issuer?.toLowerCase() && out ? '환매' : out ? '보냄' : '받음';
         return html`<tr><td class="small">${timeAgo(await blockTime(log.blockNumber))}</td><td>${kind}</td><td>${other === E().ZeroAddress ? '—' : addrLink(other)}</td>
           <td class="num">${out ? '−' : '+'}${won(ev.args.value)}</td><td class="small">${memoByTx[log.transactionHash] || ''}</td><td>${txLink(log.transactionHash)}</td></tr>`;
       }));

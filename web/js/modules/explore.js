@@ -7,7 +7,7 @@ const E = () => globalThis.ethers;
 function line(c, ev) {
   const a = ev.args;
   switch (`${c}.${ev.name}`) {
-    case "Members.Joined": return html`${tag("가입")} ${addrLink(a.who)} 님이 ${a.memberNo}번째 회원이 됨`;
+    case "Members.Joined": return html`${tag("이름표")} ${addrLink(a.who)} 님이 이름표를 등록 (${a.memberNo}번째)`;
     case "Seogilwon.Mint": return html`${tag("발행", "ok")} ${addrLink(a.to)} 에게 ${won(a.amount)} 새로 발행 ${a.memo ? "— “" + a.memo + "”" : ""}`;
     case "Seogilwon.Burn": return html`${tag("소각", "warn")} ${won(a.amount)} 소멸 ${a.memo ? "— “" + a.memo + "”" : ""}`;
     case "Seogilwon.Memo": return html`${tag("송금", "info")} ${addrLink(a.from)} → ${addrLink(a.to)} ${won(a.value)} “${a.memo}”`;

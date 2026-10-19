@@ -11,7 +11,7 @@ export function resolveRecipient(q) {
   if (E().isAddress(q)) return E().getAddress(q);
   const hit = Object.entries(chain.members).find(([, n]) => n === q);
   if (hit) return E().getAddress(hit[0]);
-  throw new Error(`'${q}' 라는 닉네임의 회원이 없습니다. 닉네임이나 0x 주소를 입력하세요.`);
+  throw new Error(`'${q}' 라는 이름표가 없습니다. 이름이나 0x 주소를 입력하세요.`);
 }
 
 /** 내가 보유한 코인 목록: 서길원 + 보유 중인 친구 코인 */
@@ -61,7 +61,7 @@ export default {
     const updatePreview = () => {
       try {
         const to = resolveRecipient($('#to', view).value);
-        $('#preview', view).innerHTML = `받는 주소: <span class="hash">${esc(to)}</span> ${esc(chain.members[to.toLowerCase()] ? '(' + chain.members[to.toLowerCase()] + ')' : '(가입하지 않은 주소)')}`;
+        $('#preview', view).innerHTML = `받는 주소: <span class="hash">${esc(to)}</span> ${esc(chain.members[to.toLowerCase()] ? '(' + chain.members[to.toLowerCase()] + ')' : '(이름표 없는 주소)')}`;
       } catch { $('#preview', view).textContent = ''; }
     };
     $('#to', view).addEventListener('input', updatePreview);

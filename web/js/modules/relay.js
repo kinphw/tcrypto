@@ -6,7 +6,7 @@ import { decodeInput, fmtArg } from '../core/abi.js';
 import { splitSig } from '../core/sigs.js';
 
 const E = () => globalThis.ethers;
-export const KIND = { fwd: '대납 중계 요청 (ERC-2771)', auth: '서명 송금 (EIP-3009)', buy: '서명 결제 (EIP-3009)', notice: '입금 신고서 (블록체인 밖 서명)', gas: '수수료용 ETH 요청 (블록체인 밖 서명)' };
+export const KIND = { fwd: '대납 중계 요청 (ERC-2771)', auth: '서명 송금 (EIP-3009)', buy: '서명 결제 (EIP-3009)', notice: '입금 신청서 (블록체인 밖 서명)', gas: '수수료용 ETH 요청 (블록체인 밖 서명)' };
 
 /** 요청 내용을 사람 말로 (요청함 목록과 개별 화면이 같이 씀) */
 export async function describeRequest(obj, { short: brief = false } = {}) {
@@ -27,7 +27,7 @@ export async function describeRequest(obj, { short: brief = false } = {}) {
   }
   if (obj.k === 'notice') {
     const n = obj.notice;
-    return html`${brief ? '' : '<p>'}<b>${addrLink(n.account)}</b> 가 <b>${won(n.amount)}</b> 입금을 신고했습니다. 메모: “${n.memo}” · 신고 시각 ${fmtTime(n.issuedAt)}${brief ? '' : '</p>'}
+    return html`${brief ? '' : '<p>'}<b>${addrLink(n.account)}</b> 가 <b>${won(n.amount)}</b> 입금을 신청했습니다. 메모: “${n.memo}” · 신청 시각 ${fmtTime(n.issuedAt)}${brief ? '' : '</p>'}
       ${brief ? '' : html`<p class="small muted">실제 스테이블코인이라면 발행사가 은행 계좌에 이 금액이 정말 들어왔는지 확인한 뒤에만 발행합니다. 그 확인은 블록체인 밖의 일이라 코드가 대신하지 못합니다.</p>`}`;
   }
   if (obj.k === 'gas') {
@@ -61,13 +61,13 @@ export default {
     const isMinter = wallet.address ? await (await getContract('Seogilwon')).isMinter(wallet.address) : false;
 
     render(view, html`
-      <div class="page-head"><div><h1>${obj.k === 'notice' ? '입금 신고 확인' : '대납 요청'}</h1><div class="sub">${KIND[obj.k]} · ${obj.label}</div></div></div>
+      <div class="page-head"><div><h1>${obj.k === 'notice' ? '입금 신청 확인' : obj.k === 'gas' ? 'ETH 요청' : '올려 주기 요청'}</h1><div class="sub">${KIND[obj.k]} · ${obj.label}</div></div></div>
       <div class="card"><h2>요청 내용</h2>${what}
         <p>${statusTag(obj, status[0])} <span class="small muted">${status[1]}</span></p>
         <div class="row" style="margin-top:10px">
           ${obj.k === 'notice'
             ? html`<button class="btn btn-primary" id="mintBtn" ${isMinter && status[0] === 'ready' ? '' : 'disabled'}>입금 확인 → ${won(obj.notice.amount)} 발행</button>${isMinter ? '' : html`<span class="small muted">발행 담당자 지갑으로 연결해야 합니다</span>`}`
-            : html`<button class="btn btn-primary" id="relayBtn" ${status[0] === 'ready' && v.ok ? '' : 'disabled'}>${obj.k === 'gas' ? `ETH ${GAS_GIFT} 보내기` : '수수료 내고 대신 올리기'}</button>
+            : html`<button class="btn btn-primary" id="relayBtn" ${status[0] === 'ready' && v.ok ? '' : 'disabled'}>${obj.k === 'gas' ? `ETH ${GAS_GIFT} 보내기` : '올려 주기 (수수료는 내가 냄)'}</button>
                ${wallet.address ? '' : html`<span class="small muted">MetaMask 연결 + 수수료용 ETH 가 필요합니다</span>`}`}
         </div>
         <div id="result"></div>

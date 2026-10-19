@@ -35,10 +35,10 @@ function describe(ev) {
 
 // ───────── 처음 설정: MetaMask 로 6개 배포 + 발행 담당 지정 ─────────
 const SETUP = [
-  { name: 'Forwarder', ko: '대납 중계', desc: '서명만으로 가입·상점·코인 만들기를 하게 해 주는 중계기 (ERC-2771)' },
+  { name: 'Forwarder', ko: '대납 중계', desc: '서명만으로 이름표·상점·코인 만들기를 하게 해 주는 중계기 (ERC-2771)' },
   { name: 'SeogilwonV1', ko: '서길원 구현 V1', desc: '서길원의 규칙(코드). 직접 쓰지 않고 프록시가 빌려 씀' },
   { name: 'SgwProxy', key: 'Seogilwon', ko: '서길원 (프록시)', desc: '모두가 쓰는 서길원의 고정 주소. 잔액이 저장되는 곳' },
-  { name: 'Members', ko: '명부', desc: '닉네임 가입' },
+  { name: 'Members', ko: '명부', desc: '이름표 (주소 ↔ 이름, 선택)' },
   { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (서길원 주소가 필요)' },
   { name: 'CoinFactory', ko: '코인공장', desc: '누구나 내 코인 만들기' },
 ];
@@ -167,7 +167,7 @@ export default {
         <div class="stats">
           ${stat('총 발행량', won(supply), paused ? '전체 거래 정지 중' : '정상 유통')}
           ${stat('최근 준비금 비율', cover == null ? '공시 없음' : cover.toFixed(1) + '%', last ? `${won(last.reserve)} 공시` : '')}
-          ${stat('회원', fmtNum(nMembers) + '명', `보유자 ${holders.length}명`)}
+          ${stat('보유자', fmtNum(holders.length) + '명', `이름표 ${fmtNum(nMembers)}개`)}
           ${stat('상점 · 주문', `${fmtNum(nShops)} · ${fmtNum(nOrders)}`, `거래액 ${won(volume)}`)}
         </div>
 
@@ -184,15 +184,15 @@ export default {
         </div>
 
         <div class="grid grid-2">
-          <div class="card"><h2>입금 신고 → 발행</h2>
-            <p class="small">참여자의 입금 신고는 <a href="#/inbox">요청함</a>에 자동으로 들어옵니다. 링크로 받았다면 아래에 붙여넣어 여세요.</p>
+          <div class="card"><h2>입금 신청 → 발행</h2>
+            <p class="small">참여자의 입금 신청는 <a href="#/inbox">요청함</a>에 자동으로 들어옵니다. 링크로 받았다면 아래에 붙여넣어 여세요.</p>
             <div class="row"><input id="lnk" placeholder="https://… #/relay/…" style="flex:1;min-width:160px"><button class="btn small" id="openLnk">열기</button></div>
-            <div class="field" style="margin-top:12px"><label>직접 발행 (신고 링크 없이)</label>
+            <div class="field" style="margin-top:12px"><label>직접 발행 (신청 링크 없이)</label>
               <div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1;min-width:120px"><input id="mAmt" type="number" min="1" placeholder="sgw" style="width:110px"><input id="mMemo" placeholder="메모" style="width:120px"><button class="btn small btn-primary" id="mint" ${myMinter ? '' : 'disabled'}>발행</button></div>
               <span class="small muted">발행 담당 한도 안에서만 됩니다. ${myMinter ? `남은 한도 ${won(myAllowance)}` : '지금 지갑은 발행 담당이 아닙니다.'}</span></div>
           </div>
-          <div class="card"><h2>상환 처리</h2>
-            <p class="small muted">참여자가 발행사 주소로 보낸 서길원 = 상환 요청. 원화를 돌려준 뒤(블록체인 밖) 그만큼 소각합니다.</p>
+          <div class="card"><h2>환매 처리</h2>
+            <p class="small muted">참여자가 발행사 주소로 보낸 서길원 = 환매 신청. 원화를 돌려준 뒤(블록체인 밖) 그만큼 소각합니다.</p>
             ${redemptions.length ? html`<div class="table-wrap" style="max-height:180px;overflow:auto"><table><tbody>${redemptions.slice().reverse().slice(0, 10).map(({ ev, log }) => html`<tr><td>${addrLink(ev.args.from)}</td><td class="num">${won(ev.args.value)}</td><td>${txLink(log.transactionHash)}</td></tr>`)}</tbody></table></div>` : html`<div class="empty small">접수된 상환 없음</div>`}
             <div class="row" style="margin-top:8px"><input id="bAmt" type="number" min="1" placeholder="소각할 sgw" style="width:130px"><input id="bMemo" placeholder="메모 (예: 앨리스 상환)" style="flex:1;min-width:120px"><button class="btn small" id="burn" ${myMinter ? '' : 'disabled'}>소각</button></div>
           </div>
@@ -263,10 +263,10 @@ export default {
         if (!el) return;
         const byKind = (k) => wait.filter((it) => it.obj.k === k).length;
         el.innerHTML = wait.length
-          ? `<b>처리 대기 ${wait.length}건</b> — 입금 신고 ${byKind('notice')} · 대납 실행 ${byKind('fwd') + byKind('auth') + byKind('buy')} · ETH 요청 ${byKind('gas')}`
+          ? `<b>처리 대기 ${wait.length}건</b> — 입금 신청 ${byKind('notice')} · 올려 주기 ${byKind('fwd') + byKind('auth') + byKind('buy')} · ETH 요청 ${byKind('gas')}`
           : '처리할 요청이 없습니다';
       }).catch(() => { const el = $('#inboxSum', view); if (el) el.textContent = '우편함에 연결하지 못했습니다 — 링크로 받은 요청은 아래에 붙여넣어 여세요'; });
-      act('#burn', '소각', (c) => c.burn(num('#bAmt'), why('#bMemo', '상환 처리')));
+      act('#burn', '소각', (c) => c.burn(num('#bAmt'), why('#bMemo', '환매 처리')));
       act('#cfgMinter', '발행 한도 설정', (c) => c.configureMinter(who('#kTo'), num('#kAmt')));
       act('#rmMinter', '발행 담당 해제', (c) => c.removeMinter(who('#kTo')));
       act('#bl', '블랙리스트', (c) => c.blacklist(who('#xTo'), why('#xWhy', '사유 미기재')));

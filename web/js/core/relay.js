@@ -81,12 +81,12 @@ export async function signBuy(productId, quantity, note, total, label) {
   return { k: 'buy', chainId: chain.cfg.network.chainId, label, productId: Number(productId), quantity: Number(quantity), note, auth, sig };
 }
 
-/** 입금 신고서 (블록체인에 올라가지 않음 — 발행자가 확인하고 발행) */
+/** 입금 신청서 (블록체인에 올라가지 않음 — 발행자가 확인하고 발행) */
 export async function signNotice(amount, memo) {
   const signer = requireWallet();
   const notice = { account: wallet.address, amount: BigInt(amount), memo, issuedAt: BigInt(Math.floor(Date.now() / 1000)) };
   const sig = await signer.signTypedData(domainOf.token(), { DepositNotice: TYPES.DepositNotice }, notice);
-  return { k: 'notice', chainId: chain.cfg.network.chainId, label: `입금 신고 ${won(amount)}`, notice, sig };
+  return { k: 'notice', chainId: chain.cfg.network.chainId, label: `입금 신청 ${won(amount)}`, notice, sig };
 }
 
 /** 수수료용 ETH 요청서 (블록체인에 올라가지 않음 — 발행자가 보고 ETH 를 보내 줌) */
@@ -144,12 +144,12 @@ export async function submitRelay(obj) {
   throw new Error('이 요청은 대납이 아니라 발행자 확인이 필요합니다');
 }
 
-/** 입금 신고서 승인 → 발행. 발행 메모에 신고서 지문을 남겨 같은 신고서로 두 번 발행하지 못하게 한다 */
+/** 입금 신청서 승인 → 발행. 발행 메모에 신청서 지문을 남겨 같은 신청서로 두 번 발행하지 못하게 한다 */
 export async function approveNotice(obj) {
   const v = verifyRelay(obj);
-  if (!v.ok) throw new Error('서명이 맞지 않는 신고서입니다');
+  if (!v.ok) throw new Error('서명이 맞지 않는 신청서입니다');
   const t = await writable(await getContract('Seogilwon'));
-  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신고 ${v.digest} 확인`), '발행');
+  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신청 ${v.digest} 확인`), '발행');
 }
 
 // ───────── 서명 후 화면: 공개 요청함으로 전송 (실패하면 링크로) ─────────
@@ -164,7 +164,7 @@ export async function showRelayLink(obj, { to = '발행자(또는 ETH 가 있는
 
   const what = obj.k === 'notice' ? '발행자가 입금을 확인하면 그 금액만큼 서길원을 발행해 줍니다.'
     : obj.k === 'gas' ? '발행자가 보면 수수료용 ETH 를 보내 줍니다.'
-    : '발행자(또는 ETH 가 있는 누구든)가 수수료를 내고 블록체인에 올리면 실행됩니다.';
+    : '발행자(또는 ETH 가 있는 누구든)가 수수료를 내고 올려 주면 실행됩니다.';
   const close = openModal(html`
     <h2>${posted ? '요청을 보냈습니다' : '서명 완료 — 링크를 보내 주세요'}</h2>
     <p class="small">방금 MetaMask 에서 한 것은 <b>거래가 아니라 서명</b>이라 수수료가 들지 않았어요. ${offchain ? '이 서명은 블록체인에 올라가지 않습니다.' : '아직 블록체인에는 아무 일도 없습니다.'}</p>

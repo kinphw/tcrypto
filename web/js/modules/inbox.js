@@ -1,4 +1,4 @@
-// 공개 요청함: 서명된 대납 요청·입금 신고·ETH 요청이 모이는 우편함을 누구나 볼 수 있게 보여 준다.
+// 공개 요청함: 서명된 대납 요청·입금 신청·ETH 요청이 모이는 우편함을 누구나 볼 수 있게 보여 준다.
 // 발행자(또는 ETH 가 있는 참여자)는 여기서 바로 올리기·발행 버튼을 누른다.
 import { chain, wallet, getContract } from '../core/chain.js';
 import { html, render, $, timeAgo, tag, busy, explain, toast, errMsg } from '../core/ui.js';
@@ -7,7 +7,11 @@ import { inboxInfo, readInbox, requestStatus, KEEP_HOURS } from '../core/inbox.j
 import { notReady } from './home.js';
 import { describeRequest, statusTag } from './relay.js';
 
-const SHORT = { fwd: '대납 실행', auth: '서명 송금', buy: '서명 결제', notice: '입금 신고', gas: 'ETH 요청' };
+// 요청이 실제로 무엇을 하는지 (대납 중계 요청은 안에 든 함수 이름으로)
+const METHOD = { join: '이름표 등록', openShop: '상점 열기', setShopOpen: '상점 영업 변경', listProduct: '상품 올리기', updateProduct: '상품 수정', createCoin: '코인 만들기', mint: '코인 발행', transferWithMemo: '코인 송금' };
+const kindLabel = (obj) => obj.k === 'fwd' ? (METHOD[obj.method] || '실행')
+  : obj.k === 'auth' ? (obj.auth.to.toLowerCase() === chain.cfg.issuer?.toLowerCase() ? '환매' : '송금')
+  : ({ buy: '결제', notice: '입금 신청', gas: 'ETH 요청' })[obj.k] || obj.k;
 
 export default {
   title: '요청함',
@@ -28,7 +32,9 @@ export default {
         </ol>
       </div>
 
-      <div class="card"><div class="card-head"><h2>처리 대기</h2><span class="small muted" id="who"></span></div><div id="pending" class="loading">우편함 읽는 중…</div></div>
+      <div class="card"><div class="card-head"><h2>처리 대기</h2><span class="small muted" id="who"></span></div>
+        <p class="small muted"><b>올려 주기</b> = 내 ETH 로 수수료를 내고 이 요청을 블록체인에 기록해 주기. 내용은 서명한 그대로이고 바꿀 수 없습니다. <b>발행</b> = 입금을 확인하고 서길원을 찍어 주기 (발행 담당자만).</p>
+        <div id="pending" class="loading">우편함 읽는 중…</div></div>
       <div class="card"><h2>처리됨 · 만료</h2><div id="done" class="loading">…</div></div>
 
       ${explain('실제 USDC 서비스와 비교', html`
@@ -57,7 +63,7 @@ export default {
 
     const draw = async () => {
       const isMinter = wallet.address ? await (await getContract('Seogilwon')).isMinter(wallet.address).catch(() => false) : false;
-      $('#who', view).textContent = wallet.address ? (isMinter ? '발행 담당자로 연결됨 — 모든 요청 처리 가능' : '연결됨 — 대납 실행·ETH 보내기 가능 (발행은 발행 담당자만)') : 'MetaMask 를 연결하면 처리할 수 있습니다';
+      $('#who', view).textContent = wallet.address ? (isMinter ? '발행 담당자로 연결됨 — 모든 요청 처리 가능' : '연결됨 — 올려 주기·ETH 보내기 가능 (발행은 발행 담당자만)') : 'MetaMask 를 연결하면 처리할 수 있습니다';
       let res;
       try { res = await readInbox(); } catch (e) {
         render($('#pending', view), html`<div class="empty">우편함에 연결하지 못했습니다 (${errMsg(e)}). 잠시 후 새로고침하거나, 참여자에게 링크로 받아 주세요.</div>`);
@@ -73,10 +79,10 @@ export default {
       const row = async (r, actions) => {
         const k = r.obj.k;
         const can = r.st[0] === 'ready' && wallet.address && (k !== 'notice' || isMinter);
-        const label = k === 'notice' ? '입금 확인 → 발행' : k === 'gas' ? `ETH ${GAS_GIFT} 보내기` : '수수료 내고 올리기';
+        const label = k === 'notice' ? '입금 확인 → 발행' : k === 'gas' ? `ETH ${GAS_GIFT} 보내기` : '올려 주기';
         return html`<tr>
           <td class="small">${timeAgo(r.time)}</td>
-          <td>${tag(SHORT[k] || k)}<div class="small muted">${r.obj.label}</div></td>
+          <td>${tag(kindLabel(r.obj))}<div class="small muted">${r.obj.label}</div></td>
           <td class="small">${await describeRequest(r.obj, { short: true })}</td>
           <td>${statusTag(r.obj, r.st[0])}<div class="small muted">${r.st[2] ? html`<a href="#/tx/${r.st[2]}">${r.st[1]}</a>` : r.st[1]}</div></td>
           <td><div class="row">${actions && can ? html`<button class="btn btn-primary small" data-act="${r.id}">${label}</button>` : ''}<a class="btn small" href="#/relay/${r.payload}">자세히</a></div></td></tr>`;

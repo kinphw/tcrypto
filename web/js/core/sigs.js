@@ -21,7 +21,7 @@ export const TYPES = {
     { name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'value', type: 'uint256' },
     { name: 'nonce', type: 'uint256' }, { name: 'deadline', type: 'uint256' },
   ],
-  // 블록체인에 올라가지 않는 '입금 신고서' (실제로는 은행 입금 후 발행사에 내는 신청서 역할)
+  // 블록체인에 올라가지 않는 '입금 신청서' (실제로는 은행 입금 후 발행사에 내는 신청서 역할)
   DepositNotice: [
     { name: 'account', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'memo', type: 'string' }, { name: 'issuedAt', type: 'uint256' },
   ],

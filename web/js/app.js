@@ -1,7 +1,7 @@
 // 앱 진입점: 설정 읽기 → 공개 노드 연결 → MetaMask 상태 확인 → 주소(#/...)에 맞는 화면 표시
 import { MODULES } from './modules/index.js';
 import { chain, initChain, startPolling, onBlock, onStatus, onRpc, wallet, onWallet, initWallet, connectWallet, switchNetwork, rpc, loadMembers } from './core/chain.js';
-import { html, render, $, esc, short, toast, fmtNum, setExplorer, errMsg } from './core/ui.js';
+import { html, render, $, esc, short, toast, fmtNum, setExplorer, errMsg, isMobile, metamaskDeepLink } from './core/ui.js';
 
 const E = () => globalThis.ethers;
 const view = $('#view');
@@ -120,6 +120,33 @@ function setupRpcLog() {
   });
 }
 
+// MetaMask 앱으로 넘어오며 ?go= 에 담아 온 화면 주소(대납 링크 등)를 # 로 되돌림
+{
+  const q = new URLSearchParams(location.search);
+  const go = q.get('go');
+  if (go && go.startsWith('#/')) {
+    q.delete('go');
+    history.replaceState(null, '', location.pathname + (q.size ? '?' + q : '') + go);
+  }
+}
+
+// 휴대폰 일반 브라우저(카톡 안 브라우저 포함)에는 지갑이 없으므로, 어느 화면에서든 MetaMask 앱으로 넘기는 띠를 보여 줌
+function drawMobileBar() {
+  if (!isMobile() || wallet.installed || document.getElementById('mmBar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'mmBar';
+  bar.className = 'mm-bar';
+  bar.innerHTML = '<span>휴대폰에서는 <b>MetaMask 앱</b> 안에서 열어야 서명할 수 있어요.</span>'
+    + '<span class="mm-acts"><a class="btn btn-primary" id="mmOpen">MetaMask 앱에서 열기</a><button class="btn" id="mmCopy">주소 복사</button></span>';
+  view.before(bar);
+  // 누르는 순간의 화면(#/relay/… 포함)으로 연결
+  $('#mmOpen').addEventListener('click', (ev) => { ev.preventDefault(); location.href = metamaskDeepLink(); });
+  $('#mmCopy').addEventListener('click', () => {
+    const url = location.href;
+    navigator.clipboard?.writeText(url).then(() => toast('복사했습니다. MetaMask 앱 → 브라우저 탭 주소창에 붙여넣으세요.')).catch(() => prompt('복사하세요', url));
+  });
+}
+
 drawNav();
 setupRpcLog();
 try {
@@ -133,6 +160,7 @@ try {
   startPolling();
   await initWallet();
   drawWallet();
+  drawMobileBar();
   window.addEventListener('hashchange', route);
   route();
 } catch (e) {

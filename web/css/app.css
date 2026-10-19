@@ -283,3 +283,10 @@ pre.code.nowrap { white-space: pre; word-break: normal; }
 .seg button { font: 600 12px var(--sans); background: var(--surface); color: var(--text); border: 0; padding: 6px 12px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--text); }
 .seg button.on { background: var(--text); color: var(--surface); }
+
+/* 휴대폰 일반 브라우저 → MetaMask 앱으로 넘기는 띠 */
+.mm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; background: var(--accent); color: var(--on-accent); font-size: 14px; }
+.mm-bar b { font-weight: 700; }
+.mm-bar .mm-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.mm-bar .btn { background: var(--surface); color: var(--text); border-color: var(--surface); }
+.mm-bar .btn-primary { background: var(--on-accent); color: var(--accent); }

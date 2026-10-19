@@ -169,3 +169,12 @@ document.addEventListener('click', (ev) => {
   if (!b) return;
   navigator.clipboard?.writeText(b.dataset.copy).then(() => toast('복사했습니다'));
 });
+
+// ───────── 휴대폰: MetaMask 앱 안에서 열기 ─────────
+export const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+/** 지금 보고 있는 화면(#/relay/… 대납 링크 포함)을 MetaMask 앱 브라우저에서 여는 주소.
+ *  # 뒷부분은 앱으로 넘어가며 사라질 수 있어 ?go= 에 담아 보내고, 앱에서 열리면 app.js 가 # 로 되돌린다. */
+export function metamaskDeepLink() {
+  const go = location.hash ? `?go=${encodeURIComponent(location.hash)}` : '';
+  return `https://metamask.app.link/dapp/${location.host}${location.pathname}${go}`;
+}

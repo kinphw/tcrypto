@@ -1,5 +1,5 @@
 import { chain, wallet, getContract, getEvents, writable, connectWallet, switchNetwork, watchToken, loadMembers, blockTime } from '../core/chain.js';
-import { html, render, $, fmtUnits, timeAgo, txLink, addrLink, explain, tag, stat, busy, toast, won, scan, errMsg } from '../core/ui.js';
+import { isMobile, metamaskDeepLink, html, render, $, fmtUnits, timeAgo, txLink, addrLink, explain, tag, stat, busy, toast, won, scan, errMsg } from '../core/ui.js';
 import { perform, signForward, signTransfer, signNotice, showRelayLink, getFeePref, setFeePref, feeMode } from '../core/relay.js';
 
 const E = () => globalThis.ethers;
@@ -28,9 +28,8 @@ export function feeToggle(onChange) {
 
 function walletIntro(view) {
   const net = chain.cfg.network;
-  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (!wallet.installed && mobile) {
-    const deep = `https://metamask.app.link/dapp/${location.host}${location.pathname}`;
+  if (!wallet.installed && isMobile()) {
+    const deep = metamaskDeepLink();
     render(view, html`
       <div class="hero"><h1>휴대폰에서는 MetaMask 앱 안에서 여세요</h1>
         <p>서길원은 <b>${net.name} 블록체인</b>에 기록되고, 그 돈을 움직이는 열쇠(개인키)는 <b>MetaMask 앱</b>이 보관합니다.

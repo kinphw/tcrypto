@@ -118,22 +118,23 @@ export function verifyRelay(obj) {
 }
 
 // ───────── 대납 실행 (수수료는 지금 연결된 지갑이 냄) ─────────
-export async function submitRelay(obj) {
-  requireWallet();
+/** signer 를 주면 그 지갑(자동 처리기)이, 안 주면 연결된 MetaMask 가 수수료를 내고 올린다 */
+export async function submitRelay(obj, signer) {
+  if (!signer) requireWallet();
   if (obj.chainId !== chain.cfg.network.chainId) throw new Error('다른 네트워크용 요청입니다');
   if (obj.k === 'fwd') {
-    const f = await writable(await getContract('Forwarder'));
+    const f = await writable(await getContract('Forwarder'), signer);
     const req = big(obj.req);
     return track(f.execute(req, obj.sig, { gasLimit: req.gas + 120000n }), `대납: ${obj.label}`);
   }
   const s = splitSig(obj.sig);
   if (obj.k === 'auth') {
-    const t = await writable(await getContract('Seogilwon'));
+    const t = await writable(await getContract('Seogilwon'), signer);
     const a = big(obj.auth);
     return track(t.transferWithAuthorization(a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`);
   }
   if (obj.k === 'buy') {
-    const m = await writable(await getContract('Market'));
+    const m = await writable(await getContract('Market'), signer);
     const a = big(obj.auth);
     return track(m.buyWithAuthorization(obj.productId, obj.quantity, obj.note || '', a.from, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s), `대납: ${obj.label}`);
   }
@@ -145,11 +146,11 @@ export async function submitRelay(obj) {
 }
 
 /** 입금 신청서 승인 → 발행. 발행 메모에 신청서 지문을 남겨 같은 신청서로 두 번 발행하지 못하게 한다 */
-export async function approveNotice(obj) {
+export async function approveNotice(obj, signer, { auto = false } = {}) {
   const v = verifyRelay(obj);
   if (!v.ok) throw new Error('서명이 맞지 않는 신청서입니다');
-  const t = await writable(await getContract('Seogilwon'));
-  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신청 ${v.digest} 확인`), '발행');
+  const t = await writable(await getContract('Seogilwon'), signer);
+  return track(t.mint(obj.notice.account, BigInt(obj.notice.amount), `입금 신청 ${v.digest} 확인${auto ? ' (자동)' : ''}`), '발행');
 }
 
 // ───────── 서명 후 화면: 공개 요청함으로 전송 (실패하면 링크로) ─────────

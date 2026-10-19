@@ -101,7 +101,7 @@ export default {
         <div class="balance">
           <div><div class="label">내 서길원</div><div class="amt">${won(sgw)}</div></div>
           <div class="side"><button class="btn small" id="watch">MetaMask 에 표시하기</button>
-            <span class="small muted">수수료용 ${net.currency.symbol} ${fmtUnits(eth, 18, 6)}${eth > 0n ? '' : ' · 없어도 됨'}</span></div>
+            ${eth > 0n ? html`<span class="small muted">수수료용 ${net.currency.symbol} ${fmtUnits(eth, 18, 6)}</span>` : html`<span class="small muted">수수료는 발행사가 냅니다</span>`}</div>
         </div>
         <div id="myReq"></div>
 
@@ -126,9 +126,8 @@ export default {
 
         <details class="card"><summary><b>수수료 설정</b> <span class="small muted">— 지금: ${mode === 'direct' ? '내가 ETH 로 냄' : '발행자가 냄'} (바꿀 일 거의 없음)</span></summary>
           <div class="row" style="margin-top:10px"><span id="feeSeg"></span></div>
-          <p class="small muted">블록체인에 기록할 때마다 ETH 수수료가 듭니다. <b>발행자가 냄</b>이면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">요청함</a>으로 가서 발행자가 수수료를 내고 올려 줍니다. 발행자는 내용을 바꿀 수 없습니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
+          <p class="small muted">블록체인에 기록할 때마다 ETH 수수료가 듭니다. <b>발행자가 냄</b>이면 MetaMask 로 서명만 하고(수수료 0), 서명이 <a href="#/inbox">요청함</a>으로 가서 발행사의 자동 처리기가 수수료를 내고 올려 줍니다. 발행자는 내용을 바꿀 수 없습니다. 실제 USDC 의 ‘수수료 없는 송금’과 같은 구조입니다.
             <b>자동</b>은 ETH 가 있으면 내가, 없으면 발행자가 냅니다.</p>
-          ${eth === 0n ? html`<div class="row" style="margin-top:8px"><button class="btn" id="askGas">수수료용 ETH 요청하기</button><span class="small muted">발행자를 기다리지 않고 직접 해 보고 싶다면. 발행자가 ${GAS_GIFT} ETH 를 보내 줍니다.</span></div>` : ''}
         </details>
 
         ${explain('MetaMask·이더스캔에서도 똑같이 보이나요?', html`<p>[MetaMask 에 표시하기]를 누르면 MetaMask 의 토큰 목록에 sgw 가 생기고 위와 같은 잔액이 보입니다. ${scan('address', me, '이더스캔')}에서 내 주소를 검색해도 같습니다.
@@ -155,9 +154,6 @@ export default {
         if (!/^\d+$/.test(v) || BigInt(v) <= 0n) throw new Error('금액을 1 sgw 이상 정수로 입력하세요');
         return BigInt(v);
       };
-      $('#askGas', view)?.addEventListener('click', (ev) => busy(ev.target, async () => {
-        await showRelayLink(await signGasRequest(), { to: '발행자' });
-      }));
       $('#dep', view).addEventListener('click', (ev) => busy(ev.target, async () => {
         const obj = await signNotice(amount('#depAmt'), $('#depMemo', view).value.trim());
         await showRelayLink(obj, { to: '발행자' });

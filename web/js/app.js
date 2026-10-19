@@ -161,6 +161,18 @@ try {
   await initWallet();
   drawWallet();
   drawMobileBar();
+  // 이 기기에서 켜 둔 자동 처리기가 있으면 이어서 돌림 (어느 화면에 있든)
+  if (chain.ready) import('./core/autorelay.js').then((m) => {
+    m.resume();
+    const chip = document.createElement('a');
+    chip.id = 'autoChip';
+    chip.className = 'chip';
+    chip.href = '#/inbox';
+    $('#chainStatus').after(chip);
+    const draw = () => { chip.style.display = m.running() ? '' : 'none'; chip.innerHTML = '<span class="dot"></span>자동 처리 중'; chip.title = '이 기기의 자동 처리기가 요청함을 처리하고 있습니다 (이 탭을 닫으면 멈춤)'; };
+    draw();
+    setInterval(draw, 3000);
+  }).catch(() => {});
   window.addEventListener('hashchange', route);
   route();
 } catch (e) {

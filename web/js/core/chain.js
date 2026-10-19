@@ -164,13 +164,17 @@ export async function loadMembers() {
   return chain.members;
 }
 
+// 자동 처리기(발행사 서버 역할) 주소 — 설정 파일(relayer)과 이 기기에서 만든 것
+export const relayerLabels = new Set();
 export function labelOf(addr) {
+  if (chain.cfg?.relayer) relayerLabels.add(chain.cfg.relayer.toLowerCase());
   if (!addr || !chain.cfg) return null;
   const a = addr.toLowerCase();
   const c = chain.cfg.contracts || {};
   for (const [k, v] of Object.entries(c)) {
     if (v && v.toLowerCase() === a) return { Seogilwon: '서길원(프록시)', SeogilwonV1: '서길원 구현 V1', Forwarder: '대납 중계', Market: '상점가', Members: '명부', CoinFactory: '코인공장' }[k];
   }
+  if (relayerLabels.has(a)) return '자동 처리기';
   const nick = chain.members[a];
   if (chain.cfg.issuer && a === chain.cfg.issuer.toLowerCase()) return nick ? `${nick} (발행자)` : '발행자';
   if (nick) return nick;
@@ -242,7 +246,7 @@ async function feeHint() {
   const maxPriorityFeePerGas = tip > MIN_TIP ? tip : MIN_TIP;
   return { maxPriorityFeePerGas, maxFeePerGas: (blk?.baseFeePerGas ?? 0n) * 2n + maxPriorityFeePerGas };
 }
-function withFeeHint(signer) {
+export function withFeeHint(signer) {
   const send = signer.sendTransaction.bind(signer);
   signer.sendTransaction = async (tx) => {
     if (tx.maxFeePerGas == null && tx.gasPrice == null) {
@@ -260,8 +264,8 @@ export function requireWallet() {
   return wallet.signer;
 }
 
-export async function writable(contract) {
-  return contract.connect(requireWallet());
+export async function writable(contract, signer) {
+  return contract.connect(signer || requireWallet());
 }
 
 /** 거래 전송 → 알림 → 블록 포함까지 기다림 (공개 노드에 영수증을 직접 묻는다) */

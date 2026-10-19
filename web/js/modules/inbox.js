@@ -1,7 +1,7 @@
 // 공개 요청함: 서명된 대납 요청·입금 신청·ETH 요청이 모이는 우편함을 누구나 볼 수 있게 보여 준다.
 // 발행자(또는 ETH 가 있는 참여자)는 여기서 바로 올리기·발행 버튼을 누른다.
-import { chain, wallet, getContract } from '../core/chain.js';
-import { html, render, $, timeAgo, tag, busy, explain, toast, errMsg } from '../core/ui.js';
+import { chain, wallet, getContract, writable, track, requireWallet } from '../core/chain.js';
+import { html, render, $, timeAgo, tag, busy, explain, toast, errMsg, kv, addrLink, won } from '../core/ui.js';
 import { submitRelay, approveNotice, GAS_GIFT } from '../core/relay.js';
 import { inboxInfo, readInbox, requestStatus, KEEP_HOURS } from '../core/inbox.js';
 import { notReady } from './home.js';
@@ -12,6 +12,65 @@ const METHOD = { join: '이름표 등록', openShop: '상점 열기', setShopOpe
 const kindLabel = (obj) => obj.k === 'fwd' ? (METHOD[obj.method] || '실행')
   : obj.k === 'auth' ? (obj.auth.to.toLowerCase() === chain.cfg.issuer?.toLowerCase() ? '환매' : '송금')
   : ({ buy: '결제', notice: '입금 신청', gas: 'ETH 요청' })[obj.k] || obj.k;
+
+const E = () => globalThis.ethers;
+
+// ───────── 자동 처리기 카드 (발행사 서버 역할) ─────────
+const RELAYER_FUND = '0.02';
+const RELAYER_ALLOWANCE = 1_000_000n;
+async function drawAuto(el, onChange) {
+  const A = await import('../core/autorelay.js');
+  const t = await getContract('Seogilwon');
+  const master = await t.masterMinter();
+  const me = wallet.address;
+  const isMaster = !!me && master.toLowerCase() === me.toLowerCase();
+  const st = await A.relayerStatus();
+  const on = A.running();
+  const steps = st ? [st.eth > 0n, st.minter, on] : [false, false, false];
+  render(el, html`
+    <div class="card-head"><h2>자동 처리기</h2>${st ? (on ? tag('켜짐 — 자동 처리 중', 'ok') : tag('꺼짐')) : tag('이 기기에 없음')}</div>
+    <p class="small">켜 두면 <b>${A.INTERVAL_MS / 1000}초마다</b> 요청함을 읽어 송금·결제·상점 요청은 자동으로 올려 주고, 입금 신청은 자동으로 발행합니다. 아무도 버튼을 누를 필요가 없습니다.
+      <b>이 기기 브라우저에서 이 사이트가 열려 있는 동안</b>만 돕니다 (어느 화면이든 괜찮음).</p>
+    ${!st ? (isMaster
+      ? html`<p class="small muted">이 기기 브라우저 안에 자동 처리기 전용 지갑을 새로 만듭니다. 열쇠는 이 브라우저에만 저장됩니다.</p><button class="btn btn-primary" id="mkRelayer">이 기기에 자동 처리기 만들기</button>`
+      : html`<p class="small muted">발행 총괄(${addrLink(master)})의 기기에서 설정합니다.</p>`)
+    : html`
+      ${kv([
+        ['처리기 지갑', addrLink(st.address, { full: true, copy: true }), '수수료를 내고 올리는 주소 — 거래 해부에서 ‘보낸 사람’으로 보임'],
+        ['수수료용 ETH', `${E().formatEther(st.eth).slice(0, 10)} ETH`, st.eth > 0n ? '대납 1건에 약 0.00001 ETH' : '충전이 필요합니다'],
+        ['발행 권한', st.minter ? `있음 — 남은 한도 ${won(st.allowance)}` : '없음', '발행 총괄이 정한 한도 안에서만 자동 발행'],
+        ['건당 자동 발행 상한', html`<span class="row"><input id="maxMint" type="number" min="1" value="${String(A.maxMint())}" style="width:130px"> sgw <button class="btn small" id="saveMax">저장</button></span>`, '이보다 큰 입금 신청은 사람이 요청함에서 직접 처리'],
+      ])}
+      <ol class="steps" style="margin-top:10px">
+        <li class="done"><div>지갑 만들기</div></li>
+        <li class="${steps[0] ? 'done' : ''}"><div>수수료용 ETH 충전 ${isMaster ? html`<button class="btn small" id="fund">MetaMask 로 ${RELAYER_FUND} ETH 보내기</button>` : ''}</div></li>
+        <li class="${steps[1] ? 'done' : ''}"><div>발행 권한 주기 ${isMaster ? html`<button class="btn small" id="grant">${st.minter ? '한도 다시 채우기' : '권한 주기'} (${won(RELAYER_ALLOWANCE)})</button>` : ''}</div></li>
+        <li class="${on ? 'done' : ''}"><div>켜기 <button class="btn small ${on ? '' : 'btn-primary'}" id="toggle">${on ? '끄기' : '켜기'}</button> <button class="btn small" id="once">지금 한 번 처리</button></div></li>
+      </ol>
+      <details style="margin-top:8px"><summary class="small">처리 기록 (이 기기)</summary><div id="actlog" class="small"></div>
+        <button class="btn small btn-danger" id="forget" style="margin-top:8px">이 기기에서 자동 처리기 지우기</button></details>`}
+    ${explain('실제 발행사도 이렇게 한다 — 그리고 감독 포인트', html`
+      <p>실제 발행사는 입금 확인·발행·대납을 <b>자동화된 서버</b>가 합니다. 이 서버에는 <b>발행 한도가 정해진 ‘발행 담당’ 키</b>(뜨거운 지갑)만 주고, 한도를 정하는 <b>발행 총괄 키</b>(차가운 지갑)는 따로 보관합니다.
+        여기서도 처리기 지갑은 발행 담당일 뿐이고, 발행 총괄은 선생님 MetaMask 입니다.</p>
+      <p><b>감독 포인트</b> — 처리기 키가 털려도 피해는 <b>남은 발행 한도</b>까지입니다. 발행 총괄은 언제든 <code>removeMinter</code> 로 권한을 빼앗을 수 있고, 모든 자동 발행은 메모에 ‘(자동)’과 신청서 지문을 남겨 신청서와 대조할 수 있습니다.</p>`, { kind: 'sup' })}`);
+
+  const drawLog = () => { const l = $('#actlog', el); if (l) render(l, html`${A.activity().length ? html`<ul style="padding-left:18px;margin:6px 0">${A.activity().map((a) => html`<li>${a.ok ? '✓' : '·'} ${timeAgo(a.time)} — ${a.label} ${a.tx ? html`<a href="#/tx/${a.tx}">거래</a>` : ''}</li>`)}</ul>` : html`<p class="muted">아직 없음</p>`}`); };
+  drawLog();
+  $('#mkRelayer', el)?.addEventListener('click', () => { A.createRelayer(); drawAuto(el, onChange); });
+  $('#fund', el)?.addEventListener('click', (ev) => busy(ev.target, async () => {
+    await track(requireWallet().sendTransaction({ to: st.address, value: E().parseEther(RELAYER_FUND) }), '자동 처리기 충전');
+    await drawAuto(el, onChange);
+  }));
+  $('#grant', el)?.addEventListener('click', (ev) => busy(ev.target, async () => {
+    await track((await writable(t)).configureMinter(st.address, RELAYER_ALLOWANCE), '자동 처리기 발행 권한');
+    await drawAuto(el, onChange);
+  }));
+  $('#toggle', el)?.addEventListener('click', () => { on ? A.stop() : A.start(); drawAuto(el, onChange); });
+  $('#once', el)?.addEventListener('click', (ev) => busy(ev.target, async () => { const n = await A.runOnce(); toast(`${n}건 처리했습니다`, n ? 'ok' : ''); onChange?.(); await drawAuto(el, onChange); }));
+  $('#saveMax', el)?.addEventListener('click', () => { const v = $('#maxMint', el).value.trim(); if (/^\d+$/.test(v)) { A.setMaxMint(v); toast('저장했습니다', 'ok'); } });
+  $('#forget', el)?.addEventListener('click', () => { if (confirm('이 기기의 자동 처리기 지갑을 지웁니다. 남은 ETH 는 되찾을 수 없습니다. 계속할까요?')) { A.forgetRelayer(); drawAuto(el, onChange); } });
+  return A;
+}
 
 export default {
   title: '요청함',
@@ -28,9 +87,11 @@ export default {
           <li><b>① 참여자 화면</b><span>버튼을 누르면 MetaMask 로 <b>서명만</b> 함. 거래가 아니라 수수료 0</span></li>
           <li><b>② 공개 우편함</b><span>화면이 서명을 <a href="${box.web}" target="_blank" rel="noopener">ntfy.sh/${box.topic}</a> 에 자동으로 넣음. 실제 서비스의 <b>회사 서버</b> 자리</span></li>
           <li><b>③ 요청함 (이 화면)</b><span>우편함에서 꺼내 이 브라우저가 서명을 직접 검증. 위조는 여기서 걸러짐</span></li>
-          <li><b>④ 블록체인</b><span>발행자 등이 버튼을 누르면 <b>자기 ETH 로 수수료를 내고</b> 올림. 행위자는 서명한 사람으로 기록</span></li>
+          <li><b>④ 블록체인</b><span><b>자동 처리기</b>(또는 버튼을 누른 사람)가 <b>자기 ETH 로 수수료를 내고</b> 올림. 행위자는 서명한 사람으로 기록</span></li>
         </ol>
       </div>
+
+      <div class="card" id="auto"><div class="loading">자동 처리기 확인 중…</div></div>
 
       <div class="card"><div class="card-head"><h2>처리 대기</h2><span class="small muted" id="who"></span></div>
         <p class="small muted"><b>올려 주기</b> = 내 ETH 로 수수료를 내고 이 요청을 블록체인에 기록해 주기. 내용은 서명한 그대로이고 바꿀 수 없습니다. <b>발행</b> = 입금을 확인하고 서길원을 찍어 주기 (발행 담당자만).</p>
@@ -105,6 +166,7 @@ export default {
       })));
     };
     $('#reload', view).addEventListener('click', (ev) => busy(ev.target, draw));
+    drawAuto($('#auto', view), () => draw().catch(() => {})).then((A) => app.cleanup(A.onActivity(() => draw().catch(() => {})))).catch((e) => render($('#auto', view), html`<p class="small muted">자동 처리기를 불러오지 못했습니다: ${errMsg(e)}</p>`));
     await draw();
     app.every(20000, () => { if (!view.querySelector('button[disabled]')) draw().catch(() => {}); });
     app.onWallet(() => draw().catch(() => {}));

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title WonCoin - 발행자 통제형 원화 스테이블코인 (ERC-20, 1코인 = 1원)
+/// @title WonCoin - 발행자 통제형 원화 스테이블코인 (ERC-20, 1 sgw = 1원)
 /// @notice 실제 법정화폐 연동 스테이블코인의 구조를 단순화해 재현한 학습용 코드.
 ///         - 충전: 이용자가 '충전 요청' → 발행 담당이 (원화 입금을 확인했다고 보고) 승인 → 새로 발행(mint)
 ///         - 환불: 이용자가 '환불 요청' → 코인이 컨트랙트에 보관(에스크로) → 승인 시 소각(burn), 거절 시 반환
@@ -10,8 +10,8 @@ pragma solidity ^0.8.24;
 ///         모든 조치는 이벤트로 남아 누구나(감독기관 포함) 이더스캔 등에서 사후 감사할 수 있다.
 contract WonCoin {
     // ---- ERC-20 ----
-    string public constant name = unicode"감독실험 원화코인";
-    string public constant symbol = "sKRW";
+    string public constant name = unicode"서길원";
+    string public constant symbol = "sgw";
     uint8 public constant decimals = 0;
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;

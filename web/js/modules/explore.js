@@ -33,15 +33,15 @@ export default {
     if (!chain.ready) return notReady(view);
     const net = chain.cfg.network;
     render(view, html`
-      <div class="page-head"><div><h1>들여다보기</h1><div class="sub">이 실험실에서 일어난 모든 일은 ${net.name} 블록체인에 공개 기록됩니다</div></div></div>
+      <div class="page-head"><div><h1>들여다보기</h1><div class="sub">이 거래소에서 일어난 모든 일은 ${net.name} 블록체인에 공개 기록됩니다</div></div></div>
       ${explain('같은 장부를 세 곳에서 확인하기', html`
         <div class="diagram"><span class="node"><b>이 웹사이트</b><br>공개 노드에 직접 질의</span><span class="node"><b>MetaMask</b><br>자기 노드(Infura)로 조회</span>
           <span class="node"><b>이더스캔</b><br>자체 노드로 색인</span><span class="arrow">→ 모두 같은</span><span class="node" style="border-color:var(--accent)"><b>${net.name} 장부</b></span></div>
         <p>아래 거래를 눌러 <b>거래 해부</b>에서 서명·수수료·실행 결과를 보고, 옆의 ‘이더스캔 ↗’로 같은 거래를 외부에서 확인해 보세요. 숫자가 하나라도 다르면 이 웹사이트가 거짓말을 하는 것입니다.</p>
         <p>위 검색창에 닉네임·주소·거래 해시·블록 번호를 넣으면 무엇이든 해부할 수 있습니다.</p>`, { open: true })}
       <div class="card"><div class="card-head"><h2>지금 만들어지는 ${net.name} 블록</h2><span class="muted small">약 12초마다 전 세계 검증자 중 한 명이 블록을 만듭니다. 우리 거래는 그중 일부일 뿐입니다.</span></div><div class="chain-strip" id="strip"></div></div>
-      <div class="card"><div class="card-head"><h2>우리 실험실의 모든 기록</h2><span class="muted small">컨트랙트 이벤트 로그를 배포 블록부터 모은 것</span></div><div id="feed" class="loading">불러오는 중…</div></div>
-      <div class="card"><h2>실험실 컨트랙트</h2><div class="table-wrap"><table><tbody>
+      <div class="card"><div class="card-head"><h2>거래소의 모든 기록</h2><span class="muted small">컨트랙트 이벤트 로그를 배포 블록부터 모은 것</span></div><div id="feed" class="loading">불러오는 중…</div></div>
+      <div class="card"><h2>거래소 컨트랙트</h2><div class="table-wrap"><table><tbody>
         ${Object.entries(chain.cfg.contracts).map(([n, a]) => html`<tr><td><b>${n}</b></td><td>${addrLink(a, { full: true })}</td><td>${scan('address', a)}</td></tr>`)}
         <tr><td><b>발행자</b></td><td>${addrLink(chain.cfg.issuer, { full: true })}</td><td>${scan('address', chain.cfg.issuer)}</td></tr></tbody></table></div>
         <p class="small muted">컨트랙트 주소를 누르면 체인 위 기계어가 공개 소스코드에서 나온 것인지 직접 대조합니다.</p></div>

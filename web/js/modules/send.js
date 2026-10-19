@@ -16,7 +16,7 @@ export function resolveRecipient(q) {
 /** 내가 보유한 코인 목록: 원화코인 + 보유 중인 친구 코인 */
 export async function myCoins(me) {
   const won_ = await getContract('WonCoin');
-  const list = [{ address: chain.cfg.contracts.WonCoin, symbol: 'sKRW', name: '감독실험 원화코인', balance: me ? await won_.balanceOf(me) : 0n, official: true }];
+  const list = [{ address: chain.cfg.contracts.WonCoin, symbol: 'sgw', name: '서길원', balance: me ? await won_.balanceOf(me) : 0n, official: true }];
   const f = await getContract('CoinFactory');
   for (const a of await f.allCoins()) {
     const c = await getContract('FriendCoin', a);

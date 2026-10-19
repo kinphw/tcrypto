@@ -61,7 +61,7 @@ function productCard(p, shop) {
   const url = imageUrl(p);
   const soldout = p.stock === 0n || !p.active || !shop?.open;
   return html`<a class="product ${soldout ? 'soldout' : ''}" href="#/shop/p/${p.id}">
-    <div class="thumb">${url ? html`<img src="${url}" alt="${p.name}" loading="lazy">` : '🛍'}</div>
+    <div class="thumb">${url ? html`<img src="${url}" alt="${p.name}" loading="lazy">` : '사진 없음'}</div>
     <div class="info"><span class="shopname">${shop?.name || ''}</span><b>${p.name}</b>
       <span class="price">${won(p.price)}</span>
       <span class="small muted">${!shop?.open ? '상점 휴업' : !p.active ? '판매 중지' : p.stock === 0n ? '품절' : `재고 ${fmtNum(p.stock)} · 판매 ${fmtNum(p.sold)}`}</span></div></a>`;
@@ -72,13 +72,13 @@ async function renderMall(view, app) {
   const { shops, products } = await loadMarket();
   const list = [...products.values()].sort((a, b) => b.id - a.id);
   render(view, html`
-    <div class="page-head"><div><h1>상점가</h1><div class="sub">누구나 상점을 열고, 원화코인(sKRW)으로 사고팝니다 · 가상 상품이며 실제 배송은 없습니다</div></div>
+    <div class="page-head"><div><h1>상점가</h1><div class="sub">누구나 상점을 열고, 서길원(sgw)으로 사고팝니다 · 가상 상품이며 실제 배송은 없습니다</div></div>
       <span class="spacer"></span><a class="btn btn-primary" href="#/shop/mine">내 상점 관리</a></div>
     ${explain('결제는 어떻게 이루어지나', html`<p>상품을 사면 <b>상점가 컨트랙트</b>가 재고를 줄이고, 같은 거래 안에서 원화코인을 <b>구매자 → 상점 주인</b>에게 직접 옮깁니다.
       중간에 돈을 맡아 두는 회사가 없고, 재고 감소와 결제가 함께 성공하거나 함께 실패합니다(원자성).</p>
       <p>처음 구매할 때는 “상점가 컨트랙트가 내 원화코인을 N원까지 꺼내 갈 수 있다”는 <b>결제 허용(approve)</b> 서명이 한 번 더 필요합니다. 실제 이더리움의 모든 토큰 결제가 이 방식입니다.</p>`)}
     <div class="card"><div class="card-head"><h2>상점 ${shops.size}곳</h2></div>
-      <div class="row">${[...shops.values()].map((s) => html`<a class="pill" href="#/shop/s/${s.id}">${s.open ? '' : '💤 '}${s.name} <span class="muted">· ${chain.members[s.owner.toLowerCase()] || short(s.owner)}</span></a>`)}
+      <div class="row">${[...shops.values()].map((s) => html`<a class="pill" href="#/shop/s/${s.id}">${s.open ? '' : '(휴업) '}${s.name} <span class="muted">· ${chain.members[s.owner.toLowerCase()] || short(s.owner)}</span></a>`)}
       ${shops.size ? '' : html`<span class="muted">아직 상점이 없습니다. 첫 상점을 열어 보세요!</span>`}</div></div>
     <div class="products">${list.map((p) => productCard(p, shops.get(p.shopId)))}</div>
     ${list.length ? '' : html`<div class="empty">아직 등록된 상품이 없습니다</div>`}
@@ -127,7 +127,7 @@ async function renderProduct(view, id, app, first = true) {
     render(view, html`
       <div class="page-head"><a class="btn" href="#/shop/s/${s.id}">← ${s.name}</a></div>
       <div class="grid grid-2">
-        <div>${url ? html`<img class="detail-img" src="${url}" alt="${p.name}">` : html`<div class="product"><div class="thumb">🛍</div></div>`}
+        <div>${url ? html`<img class="detail-img" src="${url}" alt="${p.name}">` : html`<div class="product"><div class="thumb">사진 없음</div></div>`}
           ${url ? html`<p class="small muted">사진 ${fmtNum(E().dataLength(p.image))}바이트가 <a href="#/tx/${p.tx}">상품 등록 거래</a>의 이벤트 로그에 들어 있습니다.</p>` : ''}</div>
         <div class="card">
           <span class="muted">${s.name} · 주인 ${addrLink(s.owner)}</span>
@@ -193,10 +193,10 @@ async function renderMine(view, app) {
       <div class="card-head"><h2>${s.name}</h2>${s.open ? tag('영업 중', 'ok') : tag('휴업', 'warn')}<a class="small" href="#/shop/s/${s.id}">상점 보기 →</a><span class="spacer"></span>
         <button class="btn small" data-toggle="${s.open ? 0 : 1}">${s.open ? '휴업하기' : '영업 재개'}</button></div>
       <h3>상품 올리기</h3>
-      <div class="row"><input data-f="name" maxlength="60" placeholder="상품명" style="flex:2;min-width:150px"><input data-f="price" type="number" min="1" placeholder="가격(원)" style="width:120px">
+      <div class="row"><input data-f="name" maxlength="60" placeholder="상품명" style="flex:2;min-width:150px"><input data-f="price" type="number" min="1" placeholder="가격(sgw)" style="width:120px">
         <input data-f="stock" type="number" min="0" placeholder="재고" style="width:90px"></div>
       <textarea data-f="desc" rows="2" maxlength="300" placeholder="상품 설명" style="margin-top:6px"></textarea>
-      <div class="row" style="margin-top:6px"><label class="btn small">📷 사진 선택<input type="file" accept="image/*" data-f="file" hidden></label><span class="small muted" data-f="fileInfo">사진은 선택 사항 (자동으로 ${fmtNum(MAX_IMAGE)}바이트 이하로 줄임)</span>
+      <div class="row" style="margin-top:6px"><label class="btn small">사진 선택<input type="file" accept="image/*" data-f="file" hidden></label><span class="small muted" data-f="fileInfo">사진은 선택 사항 (자동으로 ${fmtNum(MAX_IMAGE)}바이트 이하로 줄임)</span>
         <span class="spacer"></span><button class="btn btn-primary" data-list>상품 올리기</button></div>
       <h3 style="margin-top:14px">내 상품</h3>
       ${[...products.values()].filter((p) => p.shopId === s.id).length ? html`<div class="table-wrap"><table><thead><tr><th>상품</th><th class="num">가격</th><th class="num">재고</th><th class="num">판매</th><th>판매 중</th><th></th></tr></thead><tbody>
@@ -236,7 +236,7 @@ async function renderMine(view, app) {
     card.querySelector('[data-list]').addEventListener('click', (ev) => busy(ev.target, async () => {
       const get = (k) => card.querySelector(`[data-f="${k}"]`).value.trim();
       if (!get('name')) throw new Error('상품명을 입력하세요');
-      if (!/^\d+$/.test(get('price')) || BigInt(get('price')) <= 0n) throw new Error('가격을 1원 이상 정수로 입력하세요');
+      if (!/^\d+$/.test(get('price')) || BigInt(get('price')) <= 0n) throw new Error('가격을 1 sgw 이상 정수로 입력하세요');
       const stock = /^\d+$/.test(get('stock')) ? BigInt(get('stock')) : 0n;
       await track((await writable(m)).listProduct(shopId, get('name'), get('desc'), BigInt(get('price')), stock, attach?.mime || '', attach?.bytes || new Uint8Array()), '상품 올리기');
       await renderMine(view, app);

@@ -3,6 +3,7 @@ import { html, render, $, fmtNum, fmtUnits, timeAgo, short, txLink, addrLink, ex
 import { verifyRuntimeCode } from '../core/verify.js';
 import { identify } from '../core/abi.js';
 import { readAccount, slotOf, mappingSlot, EMPTY_CODE_HASH, EMPTY_STORAGE } from '../core/ledger.js';
+import { rlpFields, fieldsTable, hexBlock, proofNodesView, disassemblyView } from '../core/raw.js';
 
 const E = () => globalThis.ethers;
 
@@ -26,7 +27,17 @@ function anatomyCard(address, r, codeLen) {
     ])}
     ${verifyBox(r.account.ok, `노드를 믿지 않고 검증: ${r.account.reason}`,
       html`블록 헤더의 stateRoot <span class="hash">${short(r.block.stateRoot, 8, 6)}</span> 에서 출발해 keccak256(주소) 경로로 증명 노드 ${r.account.steps.length}개를 따라 내려감 (${pathLine(r.account.steps)}). 각 노드의 해시가 부모가 가리킨 값과 모두 일치했습니다.`)}
-    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>원화코인 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 원화코인과 무관'}). 원화코인 잔액은 아래처럼 <b>원화코인 프로그램의 저장공간</b>에 적혀 있습니다.</p>` : ''}
+    ${(() => {
+      const last = E().decodeRlp(p.accountProof.at(-1) || '0xc0');
+      const leafVal = last.length === 2 && typeof last[1] === 'string' ? last[1] : null;
+      return html`<details style="margin:8px 0"><summary class="small"><b>원본 보기</b> — 장부(상태 트리)에 실제로 저장된 이 계정의 바이트와 증명 노드 ${p.accountProof.length}개</summary>
+        ${leafVal ? html`<p class="small">상태 트리의 잎에 저장된 값 = RLP[ nonce, balance, storageHash, codeHash ]</p>
+          ${fieldsTable(rlpFields(leafVal, [{ name: 'nonce', fmt: (x) => (x === '0x' ? '0' : BigInt(x).toString()) }, { name: 'balance', fmt: (x) => (x === '0x' ? '0' : BigInt(x).toLocaleString('ko-KR') + ' wei') }, { name: 'storageHash' }, { name: 'codeHash' }]))}` : ''}
+        <p class="small">이 잎을 찾아가는 경로 = keccak256(주소) = <span class="hash">${E().keccak256(address)}</span> 의 16진수 글자를 하나씩 따라 내려갑니다.</p>
+        ${proofNodesView(p.accountProof, E().keccak256(address))}
+        <details><summary class="small muted">노드가 준 원본 JSON (eth_getProof)</summary><pre class="code">${JSON.stringify(p, null, 2)}</pre></details>
+      </details>`;
+    })()}    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>원화코인 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 원화코인과 무관'}). 원화코인 잔액은 아래처럼 <b>원화코인 프로그램의 저장공간</b>에 적혀 있습니다.</p>` : ''}
   </div>`;
 }
 
@@ -53,6 +64,9 @@ async function tokenCellCard(holder, tokenAddr, tokenName, symbol) {
     </ol>
     ${verifyBox(cell.check.ok, `칸의 값 증명: ${cell.check.reason}`, html`${symbol} 프로그램의 storageHash 에서 출발해 keccak256(칸 위치) 경로로 증명 노드 ${cell.check.steps.length}개를 따라감 (${pathLine(cell.check.steps)}).`)}
     ${verifyBox(fnBal === cell.value, `프로그램 함수로 물어본 값과 비교: balanceOf() = ${fmtNum(fnBal)}`, '함수(프로그램이 계산해 주는 값)와 칸(장부에 실제로 적힌 값)이 같습니다. 지갑·이더스캔이 보여주는 토큰 잔액도 결국 이 칸입니다.')}
+    <details style="margin:8px 0"><summary class="small"><b>원본 보기</b> — 저장공간 트리의 증명 노드 ${r.proof.storageProof[0].proof.length}개</summary>
+      <p class="small">경로 = keccak256(칸 위치) = <span class="hash">${E().keccak256(slot)}</span></p>
+      ${proofNodesView(r.proof.storageProof[0].proof, E().keccak256(slot))}</details>
     <p class="small muted">정리: <b>코인(ETH)</b>은 내 주소의 balance 칸에, <b>토큰</b>은 토큰 프로그램 저장공간의 “내 줄”에 적힙니다. 그래서 토큰을 보내는 거래는 상대가 아니라 토큰 프로그램에게 보내는 것이고, 수수료는 여전히 ETH 로 냅니다.</p>
   </div>`;
 }
@@ -96,10 +110,12 @@ export default {
         <div class="page-head"><div><h1>컨트랙트 ${labelOf(address) ? tag(labelOf(address), 'info') : ''}</h1><div class="sub hash">${address} ${copyBtn(address)}</div></div>
           <span class="spacer"></span>${scan('address', address, '이더스캔 ↗')}</div>
         <div id="anatomy" class="loading">장부 칸 읽는 중…</div>
-        ${art ? verifyBox(v.ok, `소스 검증: 이 주소의 기계어 = ${art.sourceFile} 를 컴파일한 결과 (${v.reason})`, html`체인 위 코드 ${fmtNum(codeLen)}바이트를 이 실험실의 공개 소스로 다시 컴파일한 결과와 한 바이트씩 비교했습니다. codeHash = keccak256(이 기계어) 입니다.`)
-          : html`<div class="verify bad"><div class="vtitle">이 실험실의 소스와 일치하지 않는 컨트랙트입니다</div></div>`}
+        ${art ? verifyBox(v.ok, `소스 검증: 이 주소의 기계어 = ${art.sourceFile} 를 컴파일한 결과 (${v.reason})`, html`체인 위 코드 ${fmtNum(codeLen)}바이트를 이 거래소의 공개 소스로 다시 컴파일한 결과와 한 바이트씩 비교했습니다. codeHash = keccak256(이 기계어) 입니다.`)
+          : html`<div class="verify bad"><div class="vtitle">이 거래소의 소스와 일치하지 않는 컨트랙트입니다</div></div>`}
         <div id="layout"></div>
-        ${art ? html`<details class="card"><summary><b>소스 코드</b> <span class="muted small">체인에 올라간 것은 이 글이 아니라 기계어입니다</span></summary><pre class="code nowrap" style="max-height:520px">${art.source}</pre></details>` : ''}`);
+        <div class="card"><div class="card-head"><h2>기계어 — 장부의 code 칸에 실제로 들어 있는 것</h2><span class="muted small">eth_getCode 원본을 명령어로 풀어 봄</span></div>
+          ${disassemblyView(code, art ? Object.fromEntries(new (E().Interface)(art.abi).fragments.filter((f) => f.type === 'function').map((f) => [f.selector, f.name])) : {})}
+          <details><summary class="small muted">기계어 원본 바이트 (${fmtNum(codeLen)}바이트)</summary>${hexBlock(code, 32768)}</details></div>        ${art ? html`<details class="card"><summary><b>소스 코드</b> <span class="muted small">체인에 올라간 것은 이 글이 아니라 기계어입니다</span></summary><pre class="code nowrap" style="max-height:520px">${art.source}</pre></details>` : ''}`);
       const r = await readAccount(address);
       render($('#anatomy', view), anatomyCard(address, r, codeLen));
       if (art) render($('#layout', view), await storageLayoutCard(address, art));
@@ -127,8 +143,8 @@ export default {
       </div>
       <div id="anatomy" class="loading">장부 칸 읽는 중…</div>
       <div id="tokencell" class="loading">원화코인 칸 찾는 중…</div>
-      ${shops.length || coinsMade.length ? html`<div class="card"><div class="row">${shops.map(({ ev }) => html`<a class="pill" href="#/shop/s/${ev.args.shopId}">🏪 ${ev.args.name}</a>`)}
-        ${coinsMade.map(({ ev }) => html`<a class="pill" href="#/coins">◈ ${ev.args.symbol}</a>`)}</div></div>` : ''}
+      ${shops.length || coinsMade.length ? html`<div class="card"><div class="row">${shops.map(({ ev }) => html`<a class="pill" href="#/shop/s/${ev.args.shopId}">${ev.args.name}</a>`)}
+        ${coinsMade.map(({ ev }) => html`<a class="pill" href="#/coins">${ev.args.symbol}</a>`)}</div></div>` : ''}
       <div class="card"><div class="card-head"><h2>원화코인 입출금 ${fmtNum(list.length)}건</h2>${scan('token', `${chain.cfg.contracts.WonCoin}?a=${address}`, '이더스캔 토큰 내역 ↗')}</div>
         <div id="hist"></div></div>
       ${explain('감독 관점: 가명이지만 완전 공개', html`<p>주소 하나만 알면 그 주소의 모든 입출금·상대방·시점을 누구나 볼 수 있습니다. 실명 정보는 없지만,
@@ -140,7 +156,7 @@ export default {
       render($('#anatomy', view), anatomyCard(address, r, 0));
     })().catch((e) => render($('#anatomy', view), html`<div class="card muted">계정 칸을 읽지 못했습니다: ${e.message}</div>`));
     (async () => {
-      render($('#tokencell', view), await tokenCellCard(address, chain.cfg.contracts.WonCoin, 'WonCoin', 'sKRW'));
+      render($('#tokencell', view), await tokenCellCard(address, chain.cfg.contracts.WonCoin, 'WonCoin', 'sgw'));
     })().catch((e) => render($('#tokencell', view), html`<div class="card muted">원화코인 칸을 읽지 못했습니다: ${e.message}</div>`));
 
     const rows = await Promise.all(list.slice(0, 200).map(async ({ ev, log }) => {

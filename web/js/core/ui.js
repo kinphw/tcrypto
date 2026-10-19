@@ -72,7 +72,7 @@ export function scan(kind, id, text = '이더스캔 ↗') {
 }
 
 // ── 원화 금액 ──
-export const won = (v) => `${BigInt(v).toLocaleString('ko-KR')}원`;
+export const won = (v) => `${BigInt(v).toLocaleString('ko-KR')} sgw`;
 
 // ── 블록 요소 ──
 export const badge = (ok, yes = '일치', no = '불일치') => html`<span class="badge ${ok ? 'ok' : 'bad'}">${ok ? '✓ ' + yes : '✗ ' + no}</span>`;

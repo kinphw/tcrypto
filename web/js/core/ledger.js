@@ -9,6 +9,13 @@ const E = () => globalThis.ethers;
 export const EMPTY_CODE_HASH = '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'; // keccak256(빈 코드)
 export const EMPTY_STORAGE = '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'; // 빈 트리의 루트
 
+/** 새 컨트랙트 주소 = keccak256( RLP[만든 주소, 만든 주소의 nonce] ) 의 끝 20바이트 */
+export function createAddressSteps(from, nonce) {
+  const rlp = E().encodeRlp([from, nonce === 0 ? '0x' : E().toBeHex(nonce)]);
+  const hash = E().keccak256(rlp);
+  return { rlp, hash, address: E().getAddress('0x' + hash.slice(26)) };
+}
+
 /** 컴파일 결과의 변수 배치표에서 변수가 몇 번 칸에 있는지 */
 export function slotOf(art, label) {
   const s = art.storageLayout.storage.find((x) => x.label === label);

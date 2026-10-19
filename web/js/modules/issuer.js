@@ -1,6 +1,7 @@
 import { chain, wallet, rpc, getContract, getEvents, writable, track, artifact, requireWallet, waitReceipt, saveLocalDeployment, loadMembers, blockTime } from '../core/chain.js';
 import { html, render, $, $$, fmtNum, fmtUnits, fmtTime, timeAgo, short, txLink, addrLink, explain, tag, kv, stat, busy, toast, won, scan, copyBtn } from '../core/ui.js';
 import { resolveRecipient } from './send.js';
+import { createAddressSteps } from '../core/ledger.js';
 
 const E = () => globalThis.ethers;
 const ROLES = { MINTER: '발행 담당', COMPLIANCE: '준법 담당', PAUSER: '정지 담당' };
@@ -26,50 +27,80 @@ function describe(ev) {
 }
 
 // ───────── 처음 설정: 발행자가 MetaMask 로 컨트랙트 4개 배포 ─────────
+const SETUP = [
+  { name: 'Members', ko: '명부', desc: '닉네임 가입' },
+  { name: 'WonCoin', ko: '원화코인', desc: '충전·환불·동결·준비금 공시' },
+  { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (원화코인 주소를 알아야 해서 원화코인 다음)' },
+  { name: 'CoinFactory', ko: '코인공장', desc: '누구나 내 코인 만들기' },
+];
+
+
 async function renderSetup(view) {
+  const me = wallet.address;
+  const nonce0 = Number(await rpc('eth_getTransactionCount', [me, 'latest']));
+  const predicted = SETUP.map((s, i) => ({ ...s, nonce: nonce0 + i, ...createAddressSteps(me, nonce0 + i) }));
+  const ex = predicted[0];
   render(view, html`
-    <div class="page-head"><div><h1>처음 설정 (발행자 전용)</h1><div class="sub">${chain.cfg.network.name} 에 실험실 컨트랙트 4개를 배포합니다</div></div></div>
+    <div class="page-head"><div><h1>처음 설정 (발행자 전용)</h1><div class="sub">${chain.cfg.network.name} 장부에 거래소 프로그램 4개를 올립니다</div></div></div>
     <div class="card">
-      <p>지금 MetaMask 에 연결된 주소가 <b>발행자</b>가 됩니다. 원화코인의 발행·동결 권한이 이 주소에 생깁니다.</p>
-      <ol class="steps">
-        <li><div><b>명부(Members)</b> — 닉네임 가입</div></li>
-        <li><div><b>원화코인(WonCoin)</b> — 충전·환불·동결·준비금 공시</div></li>
-        <li><div><b>상점가(Market)</b> — 상점·상품·구매 (원화코인 주소를 알려줘야 하므로 2번 다음)</div></li>
-        <li><div><b>코인공장(CoinFactory)</b> — 누구나 내 코인 만들기</div></li>
-      </ol>
-      <p class="small muted">MetaMask 승인 창이 4번 뜹니다. 각각 배포 거래이며, 수수료로 시험용 ETH 가 조금 듭니다.</p>
+      <p>지금 MetaMask 에 연결된 주소 ${addrLink(me)} 가 <b>발행자</b>가 됩니다. 원화코인의 발행·동결 권한이 이 주소에 생깁니다.</p>
+      <h3>배포하면 생길 주소 — 미리 계산해 둔 예측</h3>
+      <div class="table-wrap"><table><thead><tr><th>순서</th><th>프로그램</th><th class="num">내 nonce</th><th>예측 주소</th><th>실제</th></tr></thead><tbody>
+        ${predicted.map((p, i) => html`<tr id="row-${p.name}"><td>${i + 1}</td><td><b>${p.ko}</b> <span class="muted small">${p.name}</span><br><span class="small muted">${p.desc}</span></td>
+          <td class="num">${p.nonce}</td><td class="hash small">${p.address}</td><td class="st small muted">배포 전</td></tr>`)}
+      </tbody></table></div>
+      ${explain('주소는 어떻게 미리 알 수 있나', html`
+        <p>프로그램도 지갑처럼 장부에 칸 하나(주소)를 받습니다. 그 번지수는 제비뽑기가 아니라 <b>배포한 사람의 주소와 그 사람의 nonce(지금까지 보낸 거래 수)</b>로 계산됩니다.
+          지금 이 지갑의 nonce 는 <b>${nonce0}</b> 이라, 다음 거래 4개의 번호는 ${nonce0}, ${nonce0 + 1}, ${nonce0 + 2}, ${nonce0 + 3} 입니다.</p>
+        <p>예: 첫 번째(명부)</p>
+        <pre class="code">① RLP 로 묶기  [ ${me}, ${ex.nonce} ]
+   = ${ex.rlp}
+② keccak256    = ${ex.hash}
+③ 끝 20바이트  = 0x${ex.hash.slice(26)}
+   → 주소 ${ex.address}</pre>
+        <p class="small muted">그래서 배포 전에 이 지갑으로 다른 거래를 하면 nonce 가 밀려 주소도 바뀝니다. 같은 사람이 같은 nonce 로 두 번 배포할 수는 없으니 주소가 겹칠 일도 없습니다.</p>`, { open: true })}
+      <p class="small muted">MetaMask 확인 창이 4번 뜹니다. 하나 승인할 때마다 블록에 담길 때까지 10~20초 기다리고, 그동안 이 탭을 닫지 마세요.</p>
       <button class="btn btn-primary" id="deploy">MetaMask 로 배포 시작</button>
       <div id="out" style="margin-top:12px"></div>
     </div>`);
+  const setRow = (name, txt, ok) => {
+    const td = $(`#row-${name} .st`, view);
+    if (td) { td.className = `st small ${ok === true ? '' : 'muted'}`; td.innerHTML = String(txt); }
+  };
   $('#deploy', view).addEventListener('click', (ev) => busy(ev.target, async () => {
     const signer = requireWallet();
+    const nowNonce = Number(await rpc('eth_getTransactionCount', [wallet.address, 'latest']));
+    if (nowNonce !== nonce0 || wallet.address !== me) throw new Error('예측한 뒤에 지갑 상태(nonce·계정)가 바뀌었습니다. 새로고침해서 예측을 다시 계산하세요.');
     const deployBlock = Number(await rpc('eth_blockNumber'));
     const out = {};
-    const log = (s) => $('#out', view).insertAdjacentHTML('beforeend', `<div class="small">${s}</div>`);
-    for (const [name, args] of [['Members', []], ['WonCoin', []], ['Market', () => [out.WonCoin]], ['CoinFactory', []]]) {
-      const a = await artifact(name);
-      log(`${name} 배포: MetaMask 에서 승인하세요…`);
-      const c = await new (E().ContractFactory)(a.abi, a.bytecode, signer).deploy(...(typeof args === 'function' ? args() : args));
-      const r = await waitReceipt(c.deploymentTransaction().hash);
-      if (r.status !== 1) throw new Error(`${name} 배포 실패`);
-      out[name] = E().getAddress(r.contractAddress);
-      log(`✔ ${name} → ${out[name]}`);
+    for (const p of predicted) {
+      const a = await artifact(p.name);
+      setRow(p.name, 'MetaMask 에서 확인을 눌러 주세요…');
+      const args = p.name === 'Market' ? [out.WonCoin] : [];
+      const c = await new (E().ContractFactory)(a.abi, a.bytecode, signer).deploy(...args);
+      const h = c.deploymentTransaction().hash;
+      setRow(p.name, html`블록에 담기는 중… <a href="#/tx/${h}" target="_blank">${short(h, 6, 4)}</a>`);
+      const r = await waitReceipt(h);
+      if (r.status !== 1) { setRow(p.name, tag('실패', 'bad')); throw new Error(`${p.ko} 배포 실패`); }
+      out[p.name] = E().getAddress(r.contractAddress);
+      const hit = out[p.name] === p.address;
+      setRow(p.name, html`<span class="hash">${out[p.name]}</span><br>${hit ? tag('✓ 예측과 같음', 'ok') : tag('✗ 예측과 다름', 'bad')} <a href="#/tx/${h}">배포 거래 해부 →</a>`, true);
     }
     const d = { chainId: chain.cfg.network.chainId, issuer: wallet.address, contracts: out, deployBlock };
     saveLocalDeployment(d);
     const json = JSON.stringify({ issuer: d.issuer, contracts: d.contracts, deployBlock: d.deployBlock }, null, 2);
-    render($('#out', view), html`<div class="verify ok"><div class="vtitle">${tag('완료', 'ok')} 배포가 끝났습니다</div>
-      <p class="small">이 브라우저에서는 바로 사용할 수 있습니다. <b>다른 사람들도 쓰려면</b> 아래 내용을 웹사이트 설정 파일(<code>app-config.json</code>)에 넣어야 합니다 — Claude 에게 “배포 끝났어”라고 말하면 반영해 드립니다.</p>
-      <pre class="code">${json}</pre>${copyBtn(json)}</div>
-      <p><button class="btn btn-primary" onclick="location.reload()">실험실 열기</button></p>`);
+    const allHit = predicted.every((p) => out[p.name] === p.address);
+    render($('#out', view), html`<div class="verify ok"><div class="vtitle">${tag('완료', 'ok')} 배포가 끝났습니다 ${allHit ? tag('주소 4개 모두 예측과 일치', 'ok') : ''}</div>
+      <p class="small">이 브라우저에서는 바로 사용할 수 있습니다. <b>다른 사람들도 쓰려면</b> Claude 에게 “배포 끝났어”라고 말해 주세요. 주소를 웹사이트 설정 파일에 반영해 드립니다.</p>
+      <details><summary class="small">설정 정보 (참고용)</summary><pre class="code">${json}</pre>${copyBtn(json)}</details></div>
+      <p><button class="btn btn-primary" onclick="location.reload()">거래소 열기</button></p>`);
   }));
 }
-
 export default {
   title: '발행자 · 감독',
   async render(view, params, app) {
     if (!chain.ready) {
-      if (!wallet.address) return render(view, html`<div class="card"><h2>처음 설정</h2><p>실험실 컨트랙트가 아직 없습니다. 발행자가 될 사람이 오른쪽 위 <b>MetaMask 연결</b> 후 이 화면에서 배포하세요.</p></div>`);
+      if (!wallet.address) return render(view, html`<div class="card"><h2>처음 설정</h2><p>거래소 컨트랙트가 아직 없습니다. 발행자가 될 사람이 오른쪽 위 <b>MetaMask 연결</b> 후 이 화면에서 배포하세요.</p></div>`);
       return renderSetup(view);
     }
     const coin = await getContract('WonCoin');
@@ -134,8 +165,8 @@ export default {
 
         <div class="grid grid-2">
           <div class="card"><h2>발행 · 공시 ${tag(ROLES.MINTER)}</h2>
-            <div class="field"><label>직접 발행 (요청 없이)</label><div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1"><input id="mAmt" type="number" min="1" placeholder="원" style="width:110px"><button class="btn small" id="mint">발행</button></div></div>
-            <div class="field"><label>준비금 공시 — 실제로는 은행 잔고 증명이 필요합니다</label><div class="row"><input id="aAmt" type="number" min="0" placeholder="준비자산(원)" style="width:140px"><input id="aEv" placeholder="근거 (예: 10월 감사보고서)" style="flex:1"><button class="btn small" id="attest">공시</button></div></div>
+            <div class="field"><label>직접 발행 (요청 없이)</label><div class="row"><input id="mTo" placeholder="닉네임/주소" style="flex:1"><input id="mAmt" type="number" min="1" placeholder="sgw" style="width:110px"><button class="btn small" id="mint">발행</button></div></div>
+            <div class="field"><label>준비금 공시 — 실제로는 은행 잔고 증명이 필요합니다</label><div class="row"><input id="aAmt" type="number" min="0" placeholder="준비자산(sgw)" style="width:140px"><input id="aEv" placeholder="근거 (예: 10월 감사보고서)" style="flex:1"><button class="btn small" id="attest">공시</button></div></div>
           </div>
           <div class="card"><h2>준법 조치 ${tag(ROLES.COMPLIANCE)} ${tag(ROLES.PAUSER)}</h2>
             <div class="field"><label>대상 계좌와 사유</label><div class="row"><input id="cTo" placeholder="닉네임/주소" style="flex:1"><input id="cWhy" placeholder="사유 (기록에 남음)" style="flex:1"></div></div>

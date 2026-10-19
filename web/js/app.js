@@ -15,15 +15,16 @@ const app = {
 };
 
 function drawNav() {
+  const navMods = MODULES.filter((m) => m.nav !== false);
+  const groups = [...new Set(navMods.map((m) => m.group))];
   render($('#nav'), html`
-    <div class="brand"><span class="logo">₩</span><div>${chain.cfg?.appName || 'TCrypto 실험실'}<small>${chain.cfg ? chain.cfg.network.name + ' 위의 학습용 경제' : ''}</small></div></div>
-    ${MODULES.filter((m) => m.nav !== false).map((m) => html`<a href="#/${m.id}" data-id="${m.id}"><span class="ico">${m.icon}</span>${m.title}</a>`)}
-    <a href="guide.html" target="_blank" rel="noopener"><span class="ico">?</span>참여 안내서</a>
-    <div class="nav-foot small muted">이 사이트는 화면일 뿐이고, 모든 기록은 ${chain.cfg?.network.name || '블록체인'}에 있습니다.
-      MetaMask 와 이더스캔에서도 똑같이 확인할 수 있어요.</div>
+    <div class="brand"><span class="logo">원</span><div><b>${chain.cfg?.appName || '청라더헤븐'}</b><small>서길원 SGW 거래소${chain.cfg ? ' · ' + chain.cfg.network.name.toUpperCase() : ''}</small></div></div>
+    ${groups.map((g) => html`<div class="group">${g}</div>${navMods.filter((m) => m.group === g).map((m) => html`<a href="#/${m.id}" data-id="${m.id}"><span class="ico">${m.icon}</span>${m.title}</a>`)}`)}
+    <div class="group">안내</div>
+    <a href="guide.html" target="_blank" rel="noopener"><span class="ico">DOC</span>참여 안내서</a>
+    <div class="nav-foot">1 sgw = 1원 · 가상 거래소<br>모든 기록은 ${chain.cfg?.network.name || '블록체인'} 장부에 있고, 이 화면은 그 장부를 읽어 보여줄 뿐입니다.</div>
   `);
 }
-
 async function route() {
   scope.forEach((off) => { try { off(); } catch {} });
   scope = [];
@@ -37,7 +38,7 @@ async function route() {
   window.scrollTo(0, 0);
   try {
     const m = (await mod.load()).default;
-    document.title = `${m.title || mod.title} · ${chain.cfg?.appName || 'TCrypto'}`;
+    document.title = `${m.title || mod.title} · ${chain.cfg?.appName || '청라더헤븐'}`;
     const myScope = scope;
     const ret = await m.render(page, params.filter(Boolean), app);
     if (typeof ret === 'function') myScope.push(ret);
@@ -63,7 +64,7 @@ function drawWallet() {
   if (!wallet.chainOk) { b.className = 'btn btn-danger'; b.textContent = `${chain.cfg.network.name} 로 전환`; return; }
   const nick = chain.members[wallet.address.toLowerCase()];
   b.className = 'btn';
-  b.innerHTML = `🦊 ${esc(nick || short(wallet.address))}`;
+  b.innerHTML = esc(nick || short(wallet.address));
 }
 
 $('#walletBtn').addEventListener('click', async () => {

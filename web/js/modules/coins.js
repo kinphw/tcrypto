@@ -21,7 +21,7 @@ const mod = {
     render(view, html`
       <div class="page-head"><div><h1>내 코인 발행</h1><div class="sub">누구나 자기 이름의 코인을 만들어 발행자가 될 수 있습니다</div></div></div>
       ${explain('공식 원화코인과 무엇이 다른가', html`<ul>
-        <li><b>원화코인(sKRW)</b>: 충전 요청 → 발행자 승인 → 발행. 준비금 공시, 동결·정지 같은 통제 장치가 있고 상점 결제에 쓰입니다.</li>
+        <li><b>서길원(sgw)</b>: 충전 요청 → 발행자 승인 → 발행. 준비금 공시, 동결·정지 같은 통제 장치가 있고 상점 결제에 쓰입니다.</li>
         <li><b>내 코인</b>: 버튼 하나로 생기고, 만든 사람이 원하는 만큼 마음대로 찍어낼 수 있습니다. 담보도, 승인도, 동결 장치도 없습니다.</li>
       </ul><p>둘 다 똑같은 ERC-20 토큰이라 MetaMask·이더스캔에서는 구별 없이 ‘토큰’으로 보입니다. 이름만 보고는 믿을 수 있는 코인인지 알 수 없다는 점이 감독의 핵심 고민입니다.</p>`, { open: true })}
       <div class="card"><h2>새 코인 만들기</h2>
@@ -32,7 +32,7 @@ const mod = {
         ${coins.length ? html`<div class="table-wrap"><table><thead><tr><th>코인</th><th>발행자</th><th class="num">총 발행량</th><th class="num">내 보유</th><th></th></tr></thead><tbody>
           ${coins.slice().reverse().map((c) => html`<tr data-coin="${c.address}"><td><b>${c.symbol}</b> <span class="muted">${c.name}</span><br>${addrLink(c.address)}</td><td>${addrLink(c.issuer)}</td>
             <td class="num">${fmtNum(c.supply)}</td><td class="num">${fmtNum(c.mine)}</td>
-            <td><div class="row">${c.mine > 0n ? html`<a class="btn small" href="#/send">보내기</a>` : ''}<button class="btn small" data-watch="${c.symbol}">🦊 표시</button></div>
+            <td><div class="row">${c.mine > 0n ? html`<a class="btn small" href="#/send">보내기</a>` : ''}<button class="btn small" data-watch="${c.symbol}">MetaMask 표시</button></div>
             ${me && c.issuer.toLowerCase() === me.toLowerCase() ? html`<div class="row" style="margin-top:6px"><input data-to placeholder="받는 닉네임/주소" style="width:140px"><input data-amt type="number" min="1" placeholder="수량" style="width:90px"><button class="btn small btn-primary" data-mint>추가 발행</button></div>` : ''}</td></tr>`)}
         </tbody></table></div>` : html`<div class="empty">아직 아무도 코인을 만들지 않았습니다</div>`}</div>
     `);

@@ -62,6 +62,10 @@ export async function initChain() {
 
 export function saveLocalDeployment(d) {
   try { localStorage.setItem(DEPLOY_KEY, JSON.stringify(d)); } catch {}
+  // 새로고침하지 않고 다른 메뉴로 가도 바로 열리도록 지금 화면에도 적용
+  Object.assign(chain.cfg, { issuer: d.issuer, contracts: d.contracts, deployBlock: d.deployBlock });
+  chain.ready = true;
+  loadMembers().catch(() => {});
 }
 
 export const rpc = (method, params = []) => chain.provider.send(method, params);

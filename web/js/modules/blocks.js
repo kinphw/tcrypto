@@ -1,6 +1,7 @@
 import { chain, rpc } from '../core/chain.js';
 import { html, render, $, fmtNum, fmtUnits, fmtTime, timeAgo, short, txLink, addrLink, explain, kv, verifyBox, tag, copyBtn, scan } from '../core/ui.js';
 import { verifyBlockHash, encodeHeader, HEADER_FIELDS } from '../core/verify.js';
+import { rlpFields, fieldsTable, hexBlock } from '../core/raw.js';
 
 const E = () => globalThis.ethers;
 
@@ -64,7 +65,7 @@ export default {
         ${parent ? verifyBox(parent.hash === block.parentHash, '이전 블록과 연결', html`이 블록의 parentHash = #${n - 1} 블록의 해시 <span class="hash">${short(block.parentHash, 10, 8)}</span>`) : ''}
       </div>
 
-      <div class="card"><div class="card-head"><h2>이 블록 속 우리 실험실 거래 ${labTxs.length}건</h2></div>
+      <div class="card"><div class="card-head"><h2>이 블록 속 우리 거래소 거래 ${labTxs.length}건</h2></div>
         ${labTxs.length ? html`<div class="table-wrap"><table><tbody>${labTxs.map((t) => html`<tr><td>${Number(t.transactionIndex)}번째</td><td>${txLink(t.hash)}</td><td>${addrLink(t.from)} → ${t.to ? addrLink(t.to) : '컨트랙트 생성'}</td></tr>`)}</tbody></table></div>`
           : html`<p class="muted">없음. 나머지 ${fmtNum(block.transactions.length)}건은 전 세계 다른 사람들의 시험 거래입니다.</p>`}
         <p class="small muted">이 블록이 태운 기본 수수료: ${E().formatEther(burned)} ${chain.cfg.network.currency.symbol}</p>
@@ -75,12 +76,17 @@ export default {
         ${kv([[html`<code>hash</code>`, html`<span class="hash">${block.hash}</span>${copyBtn(block.hash)}`, '위 필드들로 계산되는 이 블록의 지문']])}
       </div>
 
+      <div class="card"><div class="card-head"><h2>헤더 원본 바이트</h2><span class="muted small">위 필드들을 RLP 로 묶은 그대로 — 이 바이트의 keccak256 이 블록 해시</span></div>
+        ${fieldsTable(rlpFields(h.headerRlp, HEADER_FIELDS.filter(([k]) => block[k] != null).map(([k, ty]) => ({ name: k, fmt: ty === 'int' ? (x) => (x === '0x' ? '0' : BigInt(x).toLocaleString('ko-KR')) : null }))))}
+        <details><summary class="small muted">헤더 전체 바이트 (${fmtNum((h.headerRlp.length - 2) / 2)}바이트)</summary>${hexBlock(h.headerRlp)}</details>
+        <details><summary class="small muted">노드가 준 원본 JSON (eth_getBlockByNumber)</summary><pre class="code">${JSON.stringify({ ...block, transactions: `(거래 ${block.transactions.length}건 생략)` }, null, 2)}</pre></details>
+      </div>
       <div class="card"><div class="card-head"><h2>변조 실험</h2><span class="muted small">과거 블록을 몰래 고치면?</span></div>
         <div class="row"><select id="tField">${HEADER_FIELDS.filter(([k]) => block[k] != null).map(([k]) => html`<option value="${k}">${k}</option>`)}</select>
           <input id="tValue" class="mono" style="flex:1;min-width:200px" placeholder="바꿀 값 (예: gasUsed 를 999 로)"><button class="btn" id="tRun">해시 다시 계산</button></div>
         <div id="tOut" style="margin-top:10px"></div></div>
       ${explain('이 블록은 누가 만들었나 (지분증명)', html`<p>이더리움은 ETH 를 맡긴(스테이킹) 수십만 검증자 중 12초마다 한 명을 무작위로 뽑아 블록을 제안하게 하고, 다른 검증자들이 투표(증명)합니다.
-        이 투표 정보는 ‘합의층(비콘체인)’에 있어 이 실행층 블록에는 parentBeaconBlockRoot 로만 연결됩니다. 우리 실험실 운영자는 블록 생성에 전혀 관여하지 않습니다.</p>`)}
+        이 투표 정보는 ‘합의층(비콘체인)’에 있어 이 실행층 블록에는 parentBeaconBlockRoot 로만 연결됩니다. 거래소 운영자는 블록 생성에 전혀 관여하지 않습니다.</p>`)}
     `);
 
     $('#tRun', view).addEventListener('click', () => {

@@ -1,8 +1,9 @@
 import { chain, rpc, getContract, getEvents } from '../core/chain.js';
 import { html, render, $, fmtNum, fmtUnits, fmtTime, short, blockLink, addrLink, explain, kv, verifyBox, tag, copyBtn, scan } from '../core/ui.js';
-import { verifyTransaction } from '../core/verify.js';
+import { verifyTransaction, encodeReceipt } from '../core/verify.js';
+import { rlpFields, fieldsTable, hexBlock, words, TX_FIELDS } from '../core/raw.js';
 import { decodeInput, decodeLog, fmtArg } from '../core/abi.js';
-import { cellsForTx, readCell } from '../core/ledger.js';
+import { cellsForTx, readCell, createAddressSteps } from '../core/ledger.js';
 
 const E = () => globalThis.ethers;
 const TYPES = { 0: '레거시 (type 0)', 1: '접근목록 (type 1)', 2: 'EIP-1559 (type 2)', 3: '블롭 (type 3)', 4: '계정 위임 (type 4)' };
@@ -16,6 +17,70 @@ function argsTable(inputs, args) {
 
 const TOKEN_MOVES = ['transfer', 'transferWithMemo', 'transferFrom'];
 
+/** 네트워크로 전송되고 블록에 저장되는 거래 바이트 그대로 */
+function rawTxCard(v, type, receipt) {
+  if (v.unsupported) return '';
+  const s = v.serialized;
+  const typed = type > 0;
+  const parsed = typed ? rlpFields('0x' + s.slice(4), TX_FIELDS[type], 1) : rlpFields(s, TX_FIELDS[0]);
+  let rc = '';
+  if (receipt) {
+    const enc = encodeReceipt(receipt);
+    const rp = rlpFields(Number(receipt.type || 0) ? '0x' + enc.slice(4) : enc, [
+      { name: 'status', desc: '성공 1 / 실패 0', fmt: (x) => (x === '0x01' ? '1 (성공)' : '0 (실패)') },
+      { name: 'cumulativeGasUsed', desc: '블록 안에서 여기까지 쓴 가스 합', fmt: (x) => (x === '0x' ? '0' : BigInt(x).toLocaleString('ko-KR')) },
+      { name: 'logsBloom', desc: '로그 검색용 256바이트 필터' },
+      { name: 'logs', desc: '[주소, [토픽들], 데이터] 목록' },
+    ], typed ? 1 : 0);
+    rc = html`<h3 style="margin-top:14px">영수증 원본 — 블록 헤더의 receiptsRoot 트리에 들어가는 바이트</h3>
+      ${fieldsTable(rp)}<details><summary class="small muted">영수증 전체 바이트 (${fmtNum((enc.length - 2) / 2)}바이트)</summary>${hexBlock(enc)}</details>`;
+  }
+  return html`<div class="card"><div class="card-head"><h2>원본 바이트 — 블록에 실제로 저장된 거래</h2><span class="muted small">RLP 로 묶인 그대로</span></div>
+    <p class="small">${typed ? html`맨 앞 1바이트 <code>${s.slice(0, 4)}</code> = 거래 유형 ${type} 표시, 그 뒤가 RLP 목록입니다.` : 'type 0 거래는 유형 표시 없이 바로 RLP 목록입니다.'}
+      이 바이트 전체를 keccak256 하면 거래 해시 <span class="hash">${short(v.hash, 10, 8)}</span> 가 됩니다. 노드끼리 주고받는 것도, 블록에 들어가는 것도 이 바이트입니다.</p>
+    ${fieldsTable(parsed)}
+    <details><summary class="small muted">거래 전체 바이트 (${fmtNum(v.size)}바이트)</summary>${hexBlock(s)}</details>
+    ${rc}</div>`;
+}
+
+/** 이벤트 로그 원본: 토픽과 32바이트 단위 데이터 */
+function rawLog(l, d) {
+  return html`<details style="margin-top:6px"><summary class="small muted">원본: 토픽 ${l.topics.length}개 + 데이터 ${fmtNum((l.data.length - 2) / 2)}바이트</summary>
+    <div class="table-wrap"><table><tbody>
+      ${l.topics.map((tp, i) => html`<tr><td class="small"><code>topic${i}</code></td><td class="hash small">${tp}</td>
+        <td class="small muted">${i === 0 ? (d ? html`keccak256("${d.signature}") — 어떤 이벤트인지` : '이벤트 종류') : d ? `검색용 인자 ${d.inputs.filter((x) => x.indexed)[i - 1]?.name || ''}` : ''}</td></tr>`)}
+      ${words(l.data).map((w, i) => html`<tr><td class="small"><code>data[${i * 32}]</code></td><td class="hash small">${w}</td><td class="small muted">${d ? d.inputs.filter((x) => !x.indexed)[i]?.name || '(가변 데이터)' : ''}</td></tr>`)}
+    </tbody></table></div></details>`;
+}
+/** 새 컨트랙트 주소가 어떻게 정해졌는지: 직접 배포 또는 컨트랙트(코인공장)가 만든 경우 */
+async function newAddressCard(t, receipt) {
+  if (!receipt) return '';
+  const boxes = [];
+  const calc = (who, whoLabel, nonce, actual) => {
+    const s = createAddressSteps(who, nonce);
+    return verifyBox(s.address === actual, `새 주소 = keccak256( RLP[${whoLabel}, nonce ${nonce}] ) 의 끝 20바이트`, html`<pre class="code">① RLP 로 묶기  [ ${who}, ${nonce} ]
+   = ${s.rlp}
+② keccak256    = ${s.hash}
+③ 끝 20바이트  → ${s.address}</pre>실제로 생긴 주소 ${addrLink(actual, { full: true })} 와 ${s.address === actual ? '같습니다' : '다릅니다'}.`);
+  };
+  if (!t.to && receipt.contractAddress) {
+    boxes.push(calc(E().getAddress(t.from), '배포한 사람', Number(t.nonce), E().getAddress(receipt.contractAddress)));
+  }
+  const factoryAddr = chain.cfg.contracts?.CoinFactory;
+  const CREATED = E().id('CoinCreated(address,address,string,string,uint256)');
+  for (const l of receipt.logs) {
+    if (!factoryAddr || l.address.toLowerCase() !== factoryAddr.toLowerCase() || l.topics[0] !== CREATED) continue;
+    const coin = E().getAddress('0x' + l.topics[1].slice(26));
+    const all = await (await getContract('CoinFactory')).allCoins();
+    const idx = all.findIndex((a) => a.toLowerCase() === coin.toLowerCase());
+    // 컨트랙트의 nonce 는 1부터 시작하고, 다른 컨트랙트를 만들 때마다 1씩 는다 → idx번째 코인은 nonce idx+1 로 만들어짐
+    if (idx >= 0) boxes.push(calc(E().getAddress(factoryAddr), '코인공장 주소', idx + 1, coin));
+  }
+  if (!boxes.length) return '';
+  return html`<div class="card"><div class="card-head"><h2>새 주소는 어떻게 정해졌나</h2><span class="muted small">이 거래로 장부에 새 칸(프로그램)이 생겼습니다</span></div>
+    <p class="small">프로그램의 주소는 제비뽑기가 아니라, <b>만든 쪽의 주소와 그 nonce(지금까지 보낸 거래 수, 컨트랙트는 만든 컨트랙트 수)</b>로 계산됩니다. 그래서 배포 전에 미리 알 수 있습니다.
+      컨트랙트가 다른 컨트랙트를 만들 때(코인공장 → 친구 코인)도 같은 공식입니다.</p>${boxes}</div>`;
+}
 /** 거래의 원본 칸(to · value · data)을 펼쳐 '코인 이전'과 '토큰 이전'의 차이를 보여준다 */
 function rawFieldsCard(t, dec, sym) {
   const data = t.input;
@@ -123,6 +188,7 @@ export default {
       const burned = baseFee * gasUsed, tip = (eff - baseFee) * gasUsed, fee = eff * gasUsed;
       const logs = receipt ? await Promise.all(receipt.logs.map(async (l) => ({ l, d: await decodeLog(l) }))) : [];
       const type = Number(t.type);
+      const newAddr = await newAddressCard(t, receipt);
 
       render(view, html`
         <div class="page-head"><div>
@@ -155,8 +221,8 @@ export default {
           <div class="card"><h2>수수료는 어디로 갔나</h2>
             ${receipt ? html`${kv([
               ['총 수수료', html`<b>${eth(fee)}</b>`, `사용 가스 ${fmtNum(gasUsed)} × 가스 가격 ${fmtNum(eff)} wei`],
-              ['🔥 소각', eth(burned), `기본 수수료 ${fmtNum(baseFee)} wei × 가스 — 영구 삭제`],
-              ['💰 검증자 몫', eth(tip), html`이 블록을 만든 검증자 ${addrLink(block.miner)}`],
+              ['소각', eth(burned), `기본 수수료 ${fmtNum(baseFee)} wei × 가스 — 영구 삭제`],
+              ['검증자 몫', eth(tip), html`이 블록을 만든 검증자 ${addrLink(block.miner)}`],
             ])}<p class="small muted">수수료는 원화코인이 아니라 이더리움 자체 코인(${sym})으로 냅니다. 세폴리아에서는 가치가 없는 시험용입니다.</p>` : html`<span class="muted">블록에 담기면 계산됩니다</span>`}
           </div>
         </div>
@@ -165,10 +231,11 @@ export default {
           ${!dec ? html`<p>입력 데이터 없음 — <b>${sym} 단순 이전</b>입니다.</p>`
             : dec.kind === 'deploy' ? html`<p>${tag('컨트랙트 배포', 'info')} <b>${dec.contract || '알 수 없는 컨트랙트'}</b> — 입력 데이터 = 컴파일된 기계어 + 생성자 인자</p>${dec.inputs ? argsTable(dec.inputs, dec.args || []) : ''}`
             : dec.kind === 'call' ? html`<p>${tag(dec.contract)} 컨트랙트의 <b><code>${dec.name}</code></b> 함수 호출 <span class="muted small">— 입력 앞 4바이트 ${dec.selector} = keccak256("${dec.signature}") 의 앞부분</span></p>${argsTable(dec.inputs, dec.args)}`
-            : html`<p>이 실험실 컨트랙트가 아닌 곳의 함수 (선택자 ${dec.selector})</p>`}
+            : html`<p>이 거래소 컨트랙트가 아닌 곳의 함수 (선택자 ${dec.selector})</p>`}
           <details style="margin-top:8px"><summary class="small muted">입력 데이터 원본 (${fmtNum((t.input.length - 2) / 2)} 바이트)</summary><pre class="code">${t.input.length > 4000 ? t.input.slice(0, 4000) + '…' : t.input}</pre></details>
         </div>
 
+        ${newAddr}
         ${rawFieldsCard(t, dec, sym)}
         <div class="card"><div class="card-head"><h2>장부 변화 — 이 거래로 바뀐 칸</h2><span class="muted small">거래 직전 블록과 직후 블록의 같은 칸을 비교</span></div>
           <div id="ledger" class="loading">${receipt ? '칸을 읽는 중…' : '블록에 담기면 보입니다'}</div></div>
@@ -187,10 +254,11 @@ export default {
             <p class="small muted">체인 ID ${Number(t.chainId)} 가 서명에 들어 있어 이 서명을 이더리움 메인넷 등 다른 체인에서 재사용할 수 없습니다 (EIP-155).</p>`}
         </div>
 
+        ${rawTxCard(v, type, receipt)}
         <div class="card"><div class="card-head"><h2>발생한 이벤트 (로그)</h2>${scan('tx', hash + '#eventlog', '이더스캔 Logs 탭 ↗')}</div>
           ${!receipt ? html`<span class="muted">대기 중</span>` : logs.length ? html`${logs.map(({ l, d }) => html`<div class="verify">
             <div class="vtitle">${d ? html`${tag(d.contract)} <code>${d.name}</code>` : '해독 불가 로그'} <span class="muted small">${addrLink(l.address)}</span></div>
-            ${d ? argsTable(d.inputs, d.args) : ''}</div>`)}` : html`<div class="empty">이벤트 없음</div>`}
+            ${d ? argsTable(d.inputs, d.args) : ''}${rawLog(l, d)}</div>`)}` : html`<div class="empty">이벤트 없음</div>`}
           ${explain('이벤트 로그와 장부 변화', html`<p>컨트랙트는 “누가 누구에게 얼마를 옮겼다(Transfer)” 같은 기록을 남깁니다. 이 웹사이트의 잔액·주문·요청 목록은 전부 이 로그를 모아 만든 것입니다.
             로그가 아니라 <b>저장소(잔액표) 자체가 어떻게 바뀌었는지</b>는 ${scan('tx', hash + '#statechange', '이더스캔의 State 탭')}에서 거래 전·후 값을 볼 수 있습니다.</p>`)}
         </div>

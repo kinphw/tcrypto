@@ -32,7 +32,7 @@ export default async function bets(page, params) {
     render(page, html`
       <section class="head-row"><h1>내기판</h1><button class="btn primary" id="new">＋ 내기 열기</button></section>
       <div class="seg">${[['live', '진행 중'], ['mine', '내 내기'], ['done', '끝난 내기']].map(([k, t]) => html`<button data-f="${k}" class="${k === f ? 'on' : ''}">${t}</button>`)}</div>
-      ${shown.length ? shown.map(card) : html`<div class="empty"><div class="big-emoji">⚑</div><p>${f === 'live' ? '진행 중인 내기가 없어요. 처음으로 열어 보세요!' : '아직 없어요'}</p></div>`}
+      ${shown.length ? html`<div class="bet-list">${shown.map(card)}</div>` : html`<div class="empty"><div class="big-emoji">⚑</div><p>${f === 'live' ? '진행 중인 내기가 없어요. 처음으로 열어 보세요!' : '아직 없어요'}</p></div>`}
       <p class="fine">가상 화폐 놀이입니다. 현금이나 물건을 걸지 마세요.</p>`);
     $$('[data-f]', page).forEach((b) => b.addEventListener('click', () => { sessionStorage.setItem('tc.betFilter', b.dataset.f); draw(); }));
     $('#new', page).addEventListener('click', createSheet);

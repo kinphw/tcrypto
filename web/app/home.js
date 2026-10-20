@@ -34,6 +34,7 @@ export default async function home(page, params, { refreshMe }) {
     render(page, html`
       <section class="hello"><h1>${m.user.name} 님</h1>${pending.length ? html`<span class="pending"><span class="spin"></span> 처리 중 ${pending.length}건</span>` : ''}</section>
 
+      <div class="cols2"><div class="col">
       <section class="money">
         <div class="acct bank">
           <div class="k">가상 은행 통장</div>
@@ -62,10 +63,12 @@ export default async function home(page, params, { refreshMe }) {
         <button class="btn" id="share">초대하기</button>
       </section>
 
+      </div><div class="col">
       <section class="card">
         <div class="card-head"><h2>친구들 소식</h2><span class="muted small">눌러서 원본 보기</span></div>
         ${feed.length ? html`<ul class="feed" id="feed">${feed.map(feedItem)}</ul>` : html`<p class="muted">아직 조용해요. 첫 내기를 열어 보세요!</p>`}
-      </section>`);
+      </section>
+      </div></div>`);
 
     $('#checkin', page)?.addEventListener('click', busy($('#checkin', page), async () => {
       const res = await api('checkin', { addr: account.address });

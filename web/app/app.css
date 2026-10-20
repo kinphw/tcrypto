@@ -205,3 +205,44 @@ code.addr { display: block; margin-top: 4px; color: var(--muted); }
 .techline a { text-decoration: underline; }
 .tech { border-top: 1px dashed var(--line); padding-top: 10px; }
 .page > .raw.tech { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; }
+
+/* 칸 나누기 (좁은 화면에서는 위아래로 쌓임) */
+.col > * + * { margin-top: 12px; }
+.cols2 > .col + .col { margin-top: 12px; }
+.bet-list > .bet:first-child { margin-top: 0; }
+
+/* PC · 태블릿 가로: 왼쪽 메뉴, 넓은 본문, 두 칸 */
+@media (min-width: 960px) {
+  :root { --side: 220px; }
+  body { padding-bottom: 32px; padding-left: var(--side); }
+  body.bare { padding-left: 0; }
+  #top { padding: 14px 32px; }
+  #tabs { top: 0; bottom: 0; right: auto; width: var(--side); height: auto; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 76px 12px 20px; border-top: 0; border-right: 1px solid var(--line); }
+  #tabs a { flex: none; flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 15px; padding: 11px 14px; border-radius: 12px; }
+  #tabs a .ico { width: 22px; text-align: center; font-size: 18px; }
+  #tabs a.on { background: var(--brand-soft); }
+  #top .brand { position: fixed; top: 16px; left: 24px; z-index: 11; }
+  main { max-width: 1120px; padding: 4px 32px 0; }
+  #toasts { bottom: 24px; left: calc(50% + var(--side) / 2); }
+  body.bare #toasts { left: 50%; }
+  .cols2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .cols2 > .col + .col { margin-top: 0; }
+  .money { grid-template-columns: 1fr 1fr; }
+  .acct .v { font-size: 28px; }
+  .bet-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  .bet-list > .bet { margin-top: 0; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .seg { max-width: 420px; }
+  .page > .card.bet-detail, .page > .back + .card { max-width: 760px; }
+  .page > .back ~ .card { max-width: 760px; }
+  .hero { padding-top: 10vh; }
+}
+@media (min-width: 1280px) {
+  .bet-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* 출석·초대 카드의 버튼은 글자만큼 (카드 안 버튼 전체 폭 규칙의 예외) */
+.card.checkin > .btn, .card.invite > .btn { width: auto; flex: none; margin-top: 0; }
+.acct .row .btn { white-space: nowrap; }
+@media (min-width: 960px) {
+  .page > .cols2:not(.me) { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+}

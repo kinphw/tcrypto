@@ -23,6 +23,7 @@ export default async function me(page) {
       <div><h1>${m.user.name}</h1><div class="muted small">${account.kind === 'metamask' ? 'MetaMask 지갑' : '이 브라우저 지갑'} · <a href="${labAddr(account.address)}" target="_blank">블록체인에서 보기</a></div><code class="small addr">${account.address}</code></div>
     </section>
 
+    <div class="cols2 me"><div class="col">
     <section class="card invite">
       <div><b>친구 초대</b><div class="muted small">내 링크로 가입하면 둘 다 ${won(app.cfg.rewards.inviteReward)}원 · 지금까지 ${m.invited}명</div><code class="small">${inviteLink(m.user.name)}</code></div>
       <button class="btn primary" id="share">공유</button>
@@ -34,6 +35,7 @@ export default async function me(page) {
       <div data-rv="cp" hidden>${rank.coupons.length ? html`<ol class="rank">${rank.coupons.map((c, i) => html`<li><span class="n">${i + 1}</span><a href="#/coupons/${c.id}"><b>${c.name}</b></a><span class="v">${c.sold}장 팔림</span></li>`)}</ol>` : html`<p class="muted">아직 없어요</p>`}</div>
     </section>
 
+    </div><div class="col">
     <section class="card"><h2>통장 내역 <small class="muted">블록체인 밖 · 가상 은행 장부</small></h2>
       ${m.history.length ? html`<ul class="list">${m.history.map((t) => html`<li><span>${BANK_KIND[t.kind] || t.kind}<span class="muted small"> · ${ago(t.at)}</span></span><b class="${t.amount > 0 ? 'ok' : ''}">${t.amount > 0 ? '+' : ''}${won(t.amount)}원</b></li>`)}</ul>` : html`<p class="muted">아직 없어요</p>`}
     </section>
@@ -52,6 +54,7 @@ export default async function me(page) {
       ${account.kind === 'local' ? html`<button class="btn ghost" id="lock">잠그기</button>` : ''}
       <button class="btn ghost danger" id="out">이 기기에서 로그아웃</button>
     </section>
+    </div></div>
     <p class="fine">청라더헤븐의 원화와 서길원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
 
   bindDetails(page, mine, feedDetail);

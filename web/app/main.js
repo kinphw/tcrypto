@@ -22,20 +22,11 @@ const TABS = [
 const HIDDEN = [{ id: 'x', title: '블록체인 보기', view: explore }];
 const view = $('#view');
 
-// 초대 링크(?i=닉네임)로 들어왔으면 가입할 때까지 기억 — 단 3일만 (오래전에 연 링크가 엉뚱하게 남지 않게)
-const INVITE_DAYS = 3;
-const inv = new URLSearchParams(location.search).get('i');
-if (inv) { try { localStorage.setItem('tc.invite', JSON.stringify({ name: inv, at: Date.now() })); } catch {} history.replaceState(null, '', location.pathname + location.hash); }
-const forgetInvite = () => { try { localStorage.removeItem('tc.invite'); } catch {} };
-const invite = () => {
-  try {
-    const raw = localStorage.getItem('tc.invite');
-    if (!raw) return null;
-    const v = raw.startsWith('{') ? JSON.parse(raw) : { name: raw, at: 0 }; // 예전 형식(이름만)은 오래된 것으로 본다
-    if (Date.now() - v.at > INVITE_DAYS * 86400e3) { forgetInvite(); return null; }
-    return v.name;
-  } catch { return null; }
-};
+// 초대 링크(?i=닉네임): 이번에 연 그 화면에서만 쓴다. 어디에도 저장하지 않는다 (주소를 직접 치고 오면 초대 없음)
+let inviteName = new URLSearchParams(location.search).get('i');
+try { localStorage.removeItem('tc.invite'); } catch {} // 예전 판이 기억해 둔 것 지우기
+const forgetInvite = () => { inviteName = null; };
+const invite = () => inviteName;
 
 export async function refreshMe() {
   app.me = account.address ? await api(`me/${account.address}`) : null;

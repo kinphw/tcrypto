@@ -1,7 +1,7 @@
 // 나: 초대 · 순위 · 통장 내역 · 내 요청 · 내 활동 · 계정 · 블록체인 보기
 import { app, api, account, html, render, $, $$, won, who, ago, sheet, toast, busy, revealPhrase, changePassword, lock, forgetWallet, short } from './core.js';
 import { feedItem, feedDetail } from './home.js';
-import { bindDetails, detailSheet, xAddr } from './core.js';
+import { bindDetails, detailSheet, xAddr, trailsList, openTrail } from './core.js';
 
 export const inviteLink = (name) => `${location.origin}/?i=${encodeURIComponent(name)}`;
 export function shareInvite(name) {
@@ -42,6 +42,8 @@ export default async function me(page) {
 
     <section class="card"><h2>내 요청 기록 <small class="muted">눌러서 원본 보기</small></h2>${m.jobs.length ? html`<ul class="list jobs">${m.jobs.map((j, i) => html`<li data-j="${i}"><span>${j.label}<span class="muted small"> · ${ago(j.createdAt)}</span></span><b class="${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : ''}">${{ done: '완료', failed: '실패', queued: '대기', sent: '처리 중' }[j.status] || j.status}</b></li>`)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
+    <section class="card"><h2>최근 통신 기록 <small class="muted">이 탭에서 누른 버튼 · 누르면 오간 JSON</small></h2>${trailsList().length ? html`<ul class="list">${trailsList().slice(0, 15).map((t) => html`<li data-t="${t.id}"><span>${t.label}<span class="muted small"> · ${new Date(t.at).toLocaleTimeString('ko-KR')}</span></span><b class="${t.status === 'failed' ? 'bad' : t.status === 'done' ? 'ok' : ''}">${{ done: '완료', failed: '실패', run: '진행 중' }[t.status]}</b></li>`)}</ul>` : html`<p class="muted">아직 없어요. 충전·보내기 같은 버튼을 누르면 여기에 쌓여요.</p>`}</section>
+
     <section class="card"><h2>내 활동</h2>${mine.length ? html`<ul class="feed">${mine.map(feedItem)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
     ${adm.admin ? html`<section class="card"><h2>관리자</h2><p class="muted small">이 브라우저는 관리자로 로그인돼 있어요. 다른 사람에게는 안 보여요.</p><a class="btn primary" href="/admin/" target="_blank">관리 페이지 열기</a></section>` : ''}
@@ -58,6 +60,7 @@ export default async function me(page) {
     <p class="fine">수원더헤븐의 원화와 박형원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
 
   bindDetails(page, mine, feedDetail);
+  $$('[data-t]', page).forEach((li) => li.addEventListener('click', () => openTrail(Number(li.dataset.t))));
   $$('[data-j]', page).forEach((li) => li.addEventListener('click', () => {
     const j = m.jobs[Number(li.dataset.j)];
     detailSheet({ title: j.label, tx: j.tx, addrs: [['요청한 사람', account.address]], note: j.tx ? `내가 서명한 요청을 발행사 서버가 블록체인에 올린 거래예요 (수수료는 서버가 냄). 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` : `아직 블록체인에 올라가지 않았어요. 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` });

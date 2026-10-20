@@ -3,6 +3,7 @@ import {
   bindDetails, techFold, app, api, account, html, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCharge, signPay, amountPicker, bindAmount, onSettled, addrOfName, nameOf, track,
 } from './core.js';
 import { inviteLink, shareInvite } from './me.js';
+import { previewFold, bindPreview, dryPay, dryCharge, dryCheckin } from './trace.js';
 
 const FEED_TEXT = {
   join: (f) => html`<b>${who(f.who)}</b> 님이 들어왔어요 👋`,
@@ -59,6 +60,7 @@ export default async function home(page, params, { refreshMe }) {
         </div>
         ${c.done ? html`<span class="stamp">✔</span>` : html`<button class="btn primary" id="checkin">출석</button>`}
       </section>
+      ${c.done ? '' : html`<div class="pv-wrap" id="ckpv">${previewFold('pvck')}</div>`}
 
       ${techFold([['내 지갑 주소', account.address, 'addr'], ['박형원 토큰 주소', app.cfg.contracts.Seogilwon, 'addr'], ['발행사(운영 지갑)', app.cfg.operator, 'addr'], ['네트워크', `${app.cfg.network.name} (체인 번호 ${app.cfg.network.chainId})`], ['통장 원화', `${won(m.bank)}원 — 블록체인 밖 가상 은행 장부`], ['지갑 박형원', `${won(m.sgw)} phw — 블록체인 위 박형원 장부`]], '내 계정 블록체인 정보')}
 
@@ -81,6 +83,7 @@ export default async function home(page, params, { refreshMe }) {
       draw();
     }));
     bindDetails(page, feed, feedDetail);
+    if ($('#ckpv', page)) bindPreview($('#ckpv', page), () => dryCheckin(), 'pvck');
     $('#share', page).addEventListener('click', () => shareInvite(m.user.name));
     $('#charge', page).addEventListener('click', () => chargeSheet(m));
     $('#redeem', page).addEventListener('click', () => redeemSheet(m));
@@ -97,9 +100,10 @@ export function chargeSheet(m) {
   sheet(html`<h2>충전하기</h2><p class="muted">통장 원화를 박형원으로 바꿔요. 1원 = 1 phw. 발행사가 통장에서 돈을 받아 준비금으로 보관하고, 같은 금액의 박형원을 발행해 지갑에 넣어 줘요.</p>
     <div class="balline">통장 <b>${won(m.bank)}원</b></div>
     ${amountPicker('amt', [10000, 30000, 50000, 'max'])}
-    <button class="btn primary big" id="go">충전</button>`, {
+    <button class="btn primary big" id="go">충전</button>${previewFold()}`, {
     onMount: (b, close) => {
       const get = bindAmount(b, 'amt', m.bank);
+      bindPreview(b, () => dryCharge(Math.floor(Number($('#amt', b).value)) || 0));
       $('#go', b).addEventListener('click', busy($('#go', b), async () => {
         const v = get();
         if (v > m.bank) throw new Error('통장 잔액보다 많아요');
@@ -115,9 +119,10 @@ export function redeemSheet(m) {
   sheet(html`<h2>환매하기</h2><p class="muted">박형원을 발행사에 돌려주면 그만큼 <b>소각</b>되고, 통장으로 원화가 돌아와요.</p>
     <div class="balline">지갑 <b>${won(m.sgw)} phw</b></div>
     ${amountPicker('amt', [10000, 30000, 'max'], { unit: 'phw' })}
-    <button class="btn primary big" id="go">환매</button>`, {
+    <button class="btn primary big" id="go">환매</button>${previewFold()}`, {
     onMount: (b, close) => {
       const get = bindAmount(b, 'amt', m.sgw);
+      bindPreview(b, () => dryPay('redeem', app.cfg.operator, Math.floor(Number($('#amt', b).value)) || 0));
       $('#go', b).addEventListener('click', busy($('#go', b), async () => {
         const v = get();
         if (v > m.sgw) throw new Error('지갑 잔액보다 많아요');
@@ -137,9 +142,10 @@ export function sendSheet(m, toName = '') {
     <label class="lbl">금액</label>
     ${amountPicker('amt', [1000, 5000, 10000], { unit: 'phw' })}
     <div class="balline">지갑 <b>${won(m.sgw)} phw</b></div>
-    <button class="btn primary big" id="go">보내기</button>`, {
+    <button class="btn primary big" id="go">보내기</button>${previewFold()}`, {
     onMount: (b, close) => {
       const get = bindAmount(b, 'amt', m.sgw);
+      bindPreview(b, () => { const n = $('#to', b).value.trim(); const to = /^0x[0-9a-fA-F]{40}$/.test(n) ? n : addrOfName(n) || '0x0000000000000000000000000000000000000000'; return dryPay('auth', globalThis.ethers.getAddress(to), Math.floor(Number($('#amt', b).value)) || 0); });
       $('#go', b).addEventListener('click', busy($('#go', b), async () => {
         const name = $('#to', b).value.trim();
         const to = /^0x[0-9a-fA-F]{40}$/.test(name) ? name : addrOfName(name);

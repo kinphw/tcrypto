@@ -4,14 +4,47 @@ import { TYPES, forwarderDomain, tokenDomain, buildAuthorization } from '../js/c
 
 const E = () => globalThis.ethers;
 
+// ───────── 통신 기록 (버튼 한 번 = trail 하나) ─────────
+// 버튼을 누르는 동안 오간 것(폰 안 서명, 서버 요청·응답, 처리 상태, 서버가 블록체인에 보낸 거래)을 순서대로 모아
+// '통신 보기'에서 단계별로 펼쳐 볼 수 있게 한다. 이 탭의 메모리에만 있고 서버로 보내지 않는다.
+export const plainJson = (v) => JSON.parse(JSON.stringify(v, (k, x) => (typeof x === 'bigint' ? x.toString() : x)));
+const netlog = [];
+const trails = new Map();
+let seq = 0;
+let currentTrail = null;
+export function beginTrail(label) {
+  const t = { id: ++seq, label: String(label || '요청').trim(), at: Date.now(), status: 'run' };
+  trails.set(t.id, t);
+  currentTrail = t.id;
+  return t.id;
+}
+export function endTrail(id, status = 'done') {
+  const t = trails.get(id);
+  if (t && t.status === 'run') t.status = status;
+  if (currentTrail === id) currentTrail = null;
+}
+export function traceLog(e, trail = currentTrail) {
+  if (!trail) return;
+  netlog.push({ id: ++seq, trail, at: Date.now(), ...e });
+  if (netlog.length > 400) netlog.shift();
+}
+export const trailsList = () => [...trails.values()].filter((t) => netlog.some((e) => e.trail === t.id)).reverse();
+export const trailInfo = (id) => trails.get(id);
+export const trailEntries = (id) => netlog.filter((e) => e.trail === id);
+let trailOpener = null;
+export const setTrailOpener = (fn) => { trailOpener = fn; };
+export const openTrail = (id) => trailOpener?.(id);
+
 // ───────── 서버 API ─────────
-export async function api(path, body) {
+export async function api(path, body, { quiet = false } = {}) {
+  const t0 = performance.now();
   const r = await fetch(`/api/${path}`, {
     method: body ? 'POST' : 'GET', cache: 'no-store',
     headers: body ? { 'content-type': 'application/json' } : {},
     body: body ? JSON.stringify(body, (k, v) => (typeof v === 'bigint' ? v.toString() : v)) : undefined,
   });
   const j = await r.json().catch(() => ({}));
+  if (!quiet) traceLog({ type: 'http', method: body ? 'POST' : 'GET', path: `/api/${path}`, req: body ? plainJson(body) : null, status: r.status, res: j, ms: Math.round(performance.now() - t0) });
   if (!r.ok) throw new Error(j.error || `서버 오류 (${r.status})`);
   return j;
 }
@@ -128,13 +161,18 @@ async function ensureChain() {
   const cur = await window.ethereum.request({ method: 'eth_chainId' });
   if (cur !== want) await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: want }] });
 }
-const sign = async (domain, types, message) => { await ensureChain(); return account.signer.signTypedData(domain, types, message); };
-const chainId = () => app.cfg.network.chainId;
-const fwdDomain = () => forwarderDomain(chainId(), app.cfg.contracts.Forwarder);
-const tokDomain = () => tokenDomain(chainId(), app.cfg.contracts.Seogilwon);
+const sign = async (domain, types, message) => {
+  await ensureChain();
+  const sig = await account.signer.signTypedData(domain, types, message);
+  traceLog({ type: 'sign', domain: plainJson(domain), primaryType: Object.keys(types)[0], types: plainJson(types), message: plainJson(message), sig, signer: account.address });
+  return sig;
+};
+export const chainId = () => app.cfg.network.chainId;
+export const fwdDomain = () => forwarderDomain(chainId(), app.cfg.contracts.Forwarder);
+export const tokDomain = () => tokenDomain(chainId(), app.cfg.contracts.Seogilwon);
 
 const ifaceCache = {};
-async function iface(name) {
+export async function iface(name) {
   if (!ifaceCache[name]) ifaceCache[name] = fetch(`/contracts/${name}.json`).then((r) => r.json()).then((a) => new (E().Interface)(a.abi));
   return ifaceCache[name];
 }
@@ -175,16 +213,27 @@ export async function submit(obj, label) {
 }
 export async function track(job, label, duplicate = false) {
   if (!job) return null;
+  const trail = currentTrail;
   const t = toast(`${label} — 처리 중…`, { sticky: true, spin: true });
   const until = Date.now() + 5 * 60e3;
   let j = job;
   while (j.status !== 'done' && j.status !== 'failed' && Date.now() < until) {
     await new Promise((r) => setTimeout(r, 1500));
-    j = await api(`job/${job.id}`).catch(() => j);
+    const prev = j.status;
+    j = await api(`job/${job.id}`, null, { quiet: true }).catch(() => j);
+    // 처리 상태 확인은 1.5초마다 하지만, 기록은 상태가 바뀔 때만 남긴다
+    if (j.status !== prev) traceLog({ type: 'http', method: 'GET', path: `/api/job/${job.id}`, req: null, status: 200, res: j, note: '처리 상태 확인 (1.5초마다 묻고, 바뀔 때만 기록)' }, trail);
   }
-  if (j.status === 'done') t.done(`${label} — 완료${duplicate ? ' (이미 처리된 요청)' : ''}`, 'ok');
-  else if (j.status === 'failed') t.done(`${label} — 실패: ${j.error || '알 수 없는 이유'}`, 'bad', 7000);
-  else t.done(`${label} — 아직 처리 중이에요. 조금 뒤 반영돼요`, '', 6000);
+  if (j.tx) {
+    // 서버가 내 요청을 담아 블록체인에 보낸 실제 거래 (서버가 보낸 것이라 앱이 거래 해시로 다시 읽어 온다)
+    const tx = await api(`x/tx/${j.tx}`, null, { quiet: true }).catch(() => null);
+    if (tx) traceLog({ type: 'chain', tx }, trail);
+  }
+  if (trail) endTrail(trail, j.status === 'failed' ? 'failed' : 'done');
+  const see = trail ? () => openTrail(trail) : null;
+  if (j.status === 'done') t.done(`${label} — 완료${duplicate ? ' (이미 처리된 요청)' : ''}`, 'ok', 8000, see);
+  else if (j.status === 'failed') t.done(`${label} — 실패: ${j.error || '알 수 없는 이유'}`, 'bad', 9000, see);
+  else t.done(`${label} — 아직 처리 중이에요. 조금 뒤 반영돼요`, '', 6000, see);
   // 서버 색인(목록·피드)은 블록을 읽고 몇 초 뒤에 따라오므로 한 번 더 새로 그린다
   const notify = () => watchers.forEach((f) => { try { f(j); } catch {} });
   notify();
@@ -228,7 +277,14 @@ export function toast(msg, { sticky = false, spin = false, kind = '' } = {}) {
   box.appendChild(el);
   const remove = (ms) => setTimeout(() => el.remove(), ms);
   if (!sticky) remove(3500);
-  return { done(m, k = '', ms = 4000) { el.className = `toast ${k}`; el.innerHTML = `<span>${esc(m)}</span>`; remove(ms); } };
+  return {
+    done(m, k = '', ms = 4000, onSee = null) {
+      el.className = `toast ${k}`;
+      el.innerHTML = `<span>${esc(m)}</span>${onSee ? '<button class="toast-see">통신 보기 ›</button>' : ''}`;
+      if (onSee) el.querySelector('.toast-see').addEventListener('click', () => { el.remove(); onSee(); });
+      remove(ms);
+    },
+  };
 }
 export const errMsg = (e) => {
   const m = e?.shortMessage || e?.message || String(e);
@@ -261,8 +317,13 @@ export function busy(btn, fn) {
     if (btn.disabled) return;
     btn.disabled = true;
     const old = btn.innerHTML;
+    const trail = beginTrail(btn.textContent); // 이 버튼 한 번에 오간 통신을 모은다
     btn.innerHTML = '<span class="spin"></span>';
-    try { return await fn(...a); } catch (e) { toast(errMsg(e), { kind: 'bad' }); } finally { btn.disabled = false; btn.innerHTML = old; }
+    try { return await fn(...a); } catch (e) {
+      endTrail(trail, 'failed');
+      const has = trailEntries(trail).length;
+      toast(errMsg(e), { kind: 'bad', sticky: true }).done(errMsg(e), 'bad', 7000, has ? () => openTrail(trail) : null);
+    } finally { endTrail(trail); btn.disabled = false; btn.innerHTML = old; }
   };
 }
 

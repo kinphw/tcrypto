@@ -4,6 +4,7 @@ import {
   createLocalWallet, restoreFromPhrase, sealLegacy, unlock, resumeSession, localState, savedName, rememberName, checkPw, forgetWallet, uploadVault, loginWithPassword,
   signCall, signProof, track, onSettled, html, render, $, $$, won, toast, errMsg, busy, sheet,
 } from './core.js';
+import './trace.js'; // '통신 보기' 시트 등록
 import home from './home.js';
 import bets from './bets.js';
 import { shop, coupons } from './market.js';

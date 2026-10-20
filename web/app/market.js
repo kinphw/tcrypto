@@ -1,4 +1,5 @@
 // 쿠폰 시장과 상점가
+import { previewFold, bindPreview, dryPay, dryCall } from './trace.js';
 import { techFold, app, api, account, html, raw, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled, addrOfName, shrinkImage, hex } from './core.js';
 
 const me = () => account.address.toLowerCase();
@@ -63,16 +64,17 @@ function couponSheet(c) {
     ${c.description ? html`<p>${c.description}</p>` : ''}
     ${techFold([['쿠폰 컨트랙트', app.cfg.contracts.Coupons, 'addr'], ['쿠폰 번호', String(c.id)], ['만든 사람', c.creator, 'addr'], ['원본', { price: c.price, supply: c.supply, sold: c.sold, redeemed: c.redeemed, onSale: c.onSale }, 'json']])}
     ${c.mine ? html`<div class="mybox">내가 가진 쿠폰 <b>${c.mine}장</b></div>` : ''}
-    ${!isCreator && c.onSale && c.left > 0 ? html`<div class="block"><h3>사기 · ${won(c.price)} phw</h3>${stepper('n', c.left)}<div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} phw</div><button class="btn primary big" id="buy">사기</button></div>` : ''}
-    ${c.mine ? html`<div class="block"><h3>쓰기</h3><input id="note" maxlength="100" placeholder="만든 사람에게 남길 말 (예: 금요일 저녁에!)"><button class="btn primary" id="use">1장 쓰기</button></div>
+    ${!isCreator && c.onSale && c.left > 0 ? html`<div class="block"><h3>사기 · ${won(c.price)} phw</h3>${stepper('n', c.left)}<div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} phw</div><button class="btn primary big" id="buy">사기</button>${previewFold('pvcb')}</div>` : ''}
+    ${c.mine ? html`<div class="block"><h3>쓰기</h3><input id="note" maxlength="100" placeholder="만든 사람에게 남길 말 (예: 금요일 저녁에!)"><button class="btn primary" id="use">1장 쓰기</button>${previewFold('pvuse')}</div>
       <div class="block"><h3>선물하기</h3><input id="to" list="ppl" placeholder="받을 친구 닉네임"><datalist id="ppl">${Object.values(app.names).sort().map((n) => html`<option value="${n}">`)}</datalist>
-        <input id="msg" maxlength="100" placeholder="메시지 (선택)"><button class="btn" id="gift">1장 선물</button></div>` : ''}
+        <input id="msg" maxlength="100" placeholder="메시지 (선택)"><button class="btn" id="gift">1장 선물</button>${previewFold('pvgift')}</div>` : ''}
     ${isCreator ? html`<div class="block"><h3>판매 설정</h3><div class="row"><input id="price" type="number" min="0" value="${c.price}" style="width:120px"><span>phw</span>
         <button class="btn" id="sale">${c.onSale ? '가격 바꾸기' : '판매 시작'}</button>${c.onSale ? html`<button class="btn ghost" id="stop">판매 중지</button>` : ''}</div></div>
       <div class="block"><h3>사용 기록</h3>${c.uses?.length ? html`<ul class="list">${c.uses.map((u) => html`<li><b>${who(u.holder)}</b> ${u.amount}장<span class="muted">${u.note || ''} · ${ago(u.time)}</span></li>`)}</ul>` : html`<p class="muted small">아직 아무도 쓰지 않았어요</p>`}</div>` : ''}`, {
     onMount: (b, close) => {
       if ($('#buy', b)) {
         const get = bindStepper(b, 'n', c.left, (n) => { $('#tot', b).textContent = `${won(n * c.price)} phw`; });
+        bindPreview(b, () => { const n = Math.max(1, Math.floor(Number($('#n', b).value)) || 1); return dryPay('cbuy', app.cfg.contracts.Coupons, n * c.price, { couponId: c.id, amount: n }); }, 'pvcb');
         $('#buy', b).addEventListener('click', busy($('#buy', b), async () => {
           const n = get();
           const total = n * c.price;
@@ -81,6 +83,8 @@ function couponSheet(c) {
           close(); await submit(obj, `“${c.name}” ${n}장 구매`);
         }));
       }
+      if ($('#use', b)) bindPreview(b, () => dryCall('Coupons', 'redeem', [c.id, 1, $('#note', b).value.trim()], { gas: 250000 }), 'pvuse');
+      if ($('#gift', b)) bindPreview(b, () => dryCall('Coupons', 'gift', [globalThis.ethers.getAddress(addrOfName($('#to', b).value.trim()) || '0x0000000000000000000000000000000000000000'), c.id, 1, $('#msg', b).value.trim()], { gas: 250000 }), 'pvgift');
       $('#use', b)?.addEventListener('click', busy($('#use', b), async () => {
         if (!confirm(`“${c.name}” 1장을 쓸까요? 쓰면 사라지고 ${who(c.creator)} 님에게 알림이 가요.`)) return;
         const obj = await signCall('Coupons', 'redeem', [c.id, 1, $('#note', b).value.trim()], { gas: 250000 });
@@ -165,10 +169,11 @@ function buySheet(p) {
     <p class="muted small">${p.shop?.name} · ${who(p.shop?.owner)} · 재고 ${p.stock}</p>${p.description ? html`<p>${p.description}</p>` : ''}
     ${techFold([['상점가 컨트랙트', app.cfg.contracts.Market, 'addr'], ['상품 번호', String(p.id)], ['가게 주인', p.shop?.owner, 'addr']])}
     ${mineShop ? html`<p class="muted">내 가게 상품이에요</p>` : html`${stepper('n', p.stock)}<input id="note" maxlength="100" placeholder="가게에 남길 말 (선택)">
-      <div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} phw</div><button class="btn primary big" id="buy">사기</button>`}`, {
+      <div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} phw</div><button class="btn primary big" id="buy">사기</button>${previewFold('pvpb')}`}`, {
     onMount: (b, close) => {
       if (mineShop) return;
       const get = bindStepper(b, 'n', p.stock, (n) => { $('#tot', b).textContent = `${won(n * p.price)} phw`; });
+      bindPreview(b, () => { const n = Math.max(1, Math.floor(Number($('#n', b).value)) || 1); return dryPay('buy', app.cfg.contracts.Market, n * p.price, { productId: p.id, quantity: n, note: $('#note', b).value.trim() }); }, 'pvpb');
       $('#buy', b).addEventListener('click', busy($('#buy', b), async () => {
         const n = get();
         const total = n * p.price;

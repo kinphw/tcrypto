@@ -1,5 +1,6 @@
 // 내기판: 누구나 질문과 선택지로 내기를 열고, 마감 전까지 박형원을 건다.
 // 마감 뒤 만든 사람이 결과를 정하면, 이긴 쪽에 건 사람들이 전체 판돈을 건 금액 비율대로 자동으로 나눠 받는다.
+import { previewFold, bindPreview, dryPay, dryCall } from './trace.js';
 import { techFold, app, api, account, html, render, $, $$, won, who, until, when, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled } from './core.js';
 
 const STATE = { open: '진행 중', closed: '마감 · 결과 기다림', resolved: '결과 나옴', cancelled: '취소 · 환불' };
@@ -69,7 +70,7 @@ async function detail(page, id) {
             ? mine.claimed != null ? html`✔ <b>${won(mine.claimed)} phw</b> 받았어요` : mine.payout > 0 ? html`🏆 받을 돈 <b>${won(mine.payout)} phw</b> — ${b.state === 'cancelled' ? '곧 환불돼요' : `결과 ${grace}분 뒤 자동으로 들어와요`}` : html`이번엔 졌어요 (건 돈 ${won(myTotal)} phw)`
             : html`내가 건 돈 <b>${won(myTotal)} phw</b>`}</div>` : ''}
         ${isCreator && b.state === 'closed' ? html`<div class="creator"><h3>결과 정하기</h3><p class="muted small">정직하게 정해 주세요. 결과 뒤 ${grace}분 동안은 관리자가 바로잡을 수 있어요.</p>
-          <div class="row wrap">${b.options.map((o, i) => html`<button class="btn" data-res="${i}">${o}</button>`)}</div></div>` : ''}
+          <div class="row wrap">${b.options.map((o, i) => html`<button class="btn" data-res="${i}">${o}</button>`)}</div><div id="respv">${previewFold('pvres')}</div></div>` : ''}
         ${isCreator && b.state === 'open' && b.pool === 0 ? html`<button class="btn ghost danger" id="cancel">아무도 안 걸었으니 취소</button>` : ''}
       </section>
       ${b.people?.length ? html`<section class="card"><h2>건 사람들</h2><ul class="list">${b.people.map((x) => html`<li><b>${x.name || who(x.addr)}</b><span class="muted">${x.stakes.map((s, i) => (s ? `${b.options[i]} ${won(s)}` : '')).filter(Boolean).join(' · ')}</span></li>`)}</ul></section>` : ''}
@@ -82,6 +83,7 @@ async function detail(page, id) {
       if (!confirm(`결과를 “${b.options[i]}”(으)로 정할까요?`)) return;
       await submit(await signCall('Bets', 'resolve', [b.id, i], { gas: 200000, label: '결과 정하기' }), `결과: ${b.options[i]}`);
     })));
+    if ($('#respv', page)) bindPreview($('#respv', page), () => dryCall('Bets', 'resolve', [b.id, 0], { gas: 200000 }), 'pvres');
     $('#cancel', page)?.addEventListener('click', busy($('#cancel', page), async () => submit(await signCall('Bets', 'cancel', [b.id], { gas: 150000 }), '내기 취소')));
     $('#shareBet', page).addEventListener('click', () => {
       const url = `${location.origin}/?i=${encodeURIComponent(app.me.user.name)}#/bets/${b.id}`;
@@ -102,9 +104,10 @@ function betSheet(b, i) {
     ${amountPicker('amt', [1000, 5000, 10000, 30000], { unit: 'phw' })}
     <div class="balline">지갑 <b>${won(sgw)} phw</b> ${sgw < 1000 ? html`· <a href="#/" class="small">충전하러 가기</a>` : ''}</div>
     <div class="est muted" id="est"></div>
-    <button class="btn primary big" id="go">걸기</button>`, {
+    <button class="btn primary big" id="go">걸기</button>${previewFold()}`, {
     onMount: (body, close) => {
       const get = bindAmount(body, 'amt', sgw);
+      bindPreview(body, () => dryPay('bet', app.cfg.contracts.Bets, Math.floor(Number($('#amt', body).value)) || 0, { betId: b.id, option: i }));
       const input = $('#amt', body);
       input.addEventListener('input', () => {
         const v = Math.floor(Number(input.value)) || 0;
@@ -131,11 +134,12 @@ function createSheet() {
     <label class="lbl">마감</label><div class="chips">${presets.map(([t, s], k) => html`<button type="button" class="chip ${k === 2 ? 'on' : ''}" data-s="${s}">${t}</button>`)}</div>
     <input id="at" type="datetime-local">
     <p class="hint">마감 뒤 결과는 내가 정해요. 공정하게!</p>
-    <button class="btn primary big" id="go">열기</button>`, {
+    <button class="btn primary big" id="go">열기</button>${previewFold()}`, {
     onMount: (body, close) => {
       const at = $('#at', body);
       const setAt = (sec) => { const d = new Date(Date.now() + sec * 1000); d.setSeconds(0, 0); at.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
       setAt(86400);
+      bindPreview(body, () => dryCall('Bets', 'create', [$('#q', body).value.trim() || '(질문)', $$('.o', body).map((x) => x.value.trim() || '(선택지)'), Math.floor(new Date(at.value).getTime() / 1000) || 0], { gas: 900000 }));
       $$('[data-s]', body).forEach((c) => c.addEventListener('click', () => { $$('[data-s]', body).forEach((x) => x.classList.toggle('on', x === c)); setAt(Number(c.dataset.s)); }));
       $('#addOpt', body).addEventListener('click', () => {
         const n = $$('.o', body).length;

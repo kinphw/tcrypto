@@ -269,3 +269,21 @@ code.addr { display: block; margin-top: 4px; color: var(--muted); }
 .card.resolve-me div { flex: 1; min-width: 0; }
 .card.resolve-me .go { font-size: 24px; }
 @media (prefers-color-scheme: dark) { .card.resolve-me { background: #3a2d10; border-color: #6b5420; color: #f6d68b; } }
+
+/* 통신 보기 */
+.hops { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.hop { border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; padding: 10px 12px; background: var(--card); }
+.hop.phone { border-left-color: var(--gold); } .hop.net { border-left-color: var(--brand); } .hop.chain { border-left-color: var(--ok); }
+.hop .who { font-weight: 600; font-size: 14px; }
+.hop .who small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+.hop .step { margin-top: 8px; }
+.pv { margin-top: 14px; }
+.pv > summary { font-size: 13.5px; }
+.pv .hop { padding: 8px 10px; }
+.pv-wrap { margin-top: 8px; }
+.toast-see { margin-left: auto; background: rgba(255,255,255,.2); border: 0; color: inherit; border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+/* 긴 JSON 이 시트를 옆으로 밀지 않게: 칸은 화면 폭에 맞추고 JSON 상자 안에서만 가로 스크롤 */
+.sheet { overflow-x: hidden; }
+.hops { grid-template-columns: minmax(0, 1fr); }
+.hop, .hop .step, .raw { min-width: 0; max-width: 100%; }
+.raw pre { max-width: 100%; white-space: pre; }

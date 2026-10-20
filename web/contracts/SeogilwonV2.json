@@ -1419,7 +1419,7 @@
   "storageLayout": {
     "storage": [
       {
-        "astId": 1873,
+        "astId": 3574,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "_initialized",
         "offset": 0,
@@ -1427,7 +1427,7 @@
         "type": "t_bool"
       },
       {
-        "astId": 1875,
+        "astId": 3576,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "name",
         "offset": 0,
@@ -1435,7 +1435,7 @@
         "type": "t_string_storage"
       },
       {
-        "astId": 1877,
+        "astId": 3578,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "symbol",
         "offset": 0,
@@ -1443,7 +1443,7 @@
         "type": "t_string_storage"
       },
       {
-        "astId": 1879,
+        "astId": 3580,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "currency",
         "offset": 0,
@@ -1451,7 +1451,7 @@
         "type": "t_string_storage"
       },
       {
-        "astId": 1881,
+        "astId": 3582,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "decimals",
         "offset": 0,
@@ -1459,7 +1459,7 @@
         "type": "t_uint8"
       },
       {
-        "astId": 1883,
+        "astId": 3584,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "totalSupply",
         "offset": 0,
@@ -1467,7 +1467,7 @@
         "type": "t_uint256"
       },
       {
-        "astId": 1887,
+        "astId": 3588,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "balanceOf",
         "offset": 0,
@@ -1475,7 +1475,7 @@
         "type": "t_mapping(t_address,t_uint256)"
       },
       {
-        "astId": 1893,
+        "astId": 3594,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "allowance",
         "offset": 0,
@@ -1483,7 +1483,7 @@
         "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
       },
       {
-        "astId": 1895,
+        "astId": 3596,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "owner",
         "offset": 0,
@@ -1491,7 +1491,7 @@
         "type": "t_address"
       },
       {
-        "astId": 1897,
+        "astId": 3598,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "masterMinter",
         "offset": 0,
@@ -1499,7 +1499,7 @@
         "type": "t_address"
       },
       {
-        "astId": 1899,
+        "astId": 3600,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "pauser",
         "offset": 0,
@@ -1507,7 +1507,7 @@
         "type": "t_address"
       },
       {
-        "astId": 1901,
+        "astId": 3602,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "blacklister",
         "offset": 0,
@@ -1515,7 +1515,7 @@
         "type": "t_address"
       },
       {
-        "astId": 1903,
+        "astId": 3604,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "paused",
         "offset": 20,
@@ -1523,7 +1523,7 @@
         "type": "t_bool"
       },
       {
-        "astId": 1907,
+        "astId": 3608,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "isMinter",
         "offset": 0,
@@ -1531,7 +1531,7 @@
         "type": "t_mapping(t_address,t_bool)"
       },
       {
-        "astId": 1911,
+        "astId": 3612,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "minterAllowance",
         "offset": 0,
@@ -1539,7 +1539,7 @@
         "type": "t_mapping(t_address,t_uint256)"
       },
       {
-        "astId": 1915,
+        "astId": 3616,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "isBlacklisted",
         "offset": 0,
@@ -1547,7 +1547,7 @@
         "type": "t_mapping(t_address,t_bool)"
       },
       {
-        "astId": 1919,
+        "astId": 3620,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "nonces",
         "offset": 0,
@@ -1555,7 +1555,7 @@
         "type": "t_mapping(t_address,t_uint256)"
       },
       {
-        "astId": 1925,
+        "astId": 3626,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "authorizationState",
         "offset": 0,
@@ -1563,12 +1563,12 @@
         "type": "t_mapping(t_address,t_mapping(t_bytes32,t_bool))"
       },
       {
-        "astId": 1938,
+        "astId": 3639,
         "contract": "Seogilwon.sol:SeogilwonV2",
         "label": "attestations",
         "offset": 0,
         "slot": "17",
-        "type": "t_array(t_struct(Attestation)1934_storage)dyn_storage"
+        "type": "t_array(t_struct(Attestation)3635_storage)dyn_storage"
       }
     ],
     "types": {
@@ -1577,8 +1577,8 @@
         "label": "address",
         "numberOfBytes": "20"
       },
-      "t_array(t_struct(Attestation)1934_storage)dyn_storage": {
-        "base": "t_struct(Attestation)1934_storage",
+      "t_array(t_struct(Attestation)3635_storage)dyn_storage": {
+        "base": "t_struct(Attestation)3635_storage",
         "encoding": "dynamic_array",
         "label": "struct SeogilwonV1.Attestation[]",
         "numberOfBytes": "32"
@@ -1633,12 +1633,12 @@
         "label": "string",
         "numberOfBytes": "32"
       },
-      "t_struct(Attestation)1934_storage": {
+      "t_struct(Attestation)3635_storage": {
         "encoding": "inplace",
         "label": "struct SeogilwonV1.Attestation",
         "members": [
           {
-            "astId": 1927,
+            "astId": 3628,
             "contract": "Seogilwon.sol:SeogilwonV2",
             "label": "reserve",
             "offset": 0,
@@ -1646,7 +1646,7 @@
             "type": "t_uint256"
           },
           {
-            "astId": 1929,
+            "astId": 3630,
             "contract": "Seogilwon.sol:SeogilwonV2",
             "label": "supplyAtTime",
             "offset": 0,
@@ -1654,7 +1654,7 @@
             "type": "t_uint256"
           },
           {
-            "astId": 1931,
+            "astId": 3632,
             "contract": "Seogilwon.sol:SeogilwonV2",
             "label": "time",
             "offset": 0,
@@ -1662,7 +1662,7 @@
             "type": "t_uint64"
           },
           {
-            "astId": 1933,
+            "astId": 3634,
             "contract": "Seogilwon.sol:SeogilwonV2",
             "label": "evidence",
             "offset": 0,

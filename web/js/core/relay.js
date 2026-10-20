@@ -5,6 +5,9 @@ import { chain, wallet, rpc, getContract, writable, track, requireWallet } from 
 import { html, render, toast, openModal, short, won, errMsg } from './ui.js';
 import { postRequest, requestStatus, KEEP_HOURS } from './inbox.js';
 import { TYPES, forwarderDomain, tokenDomain, buildForwardRequest, buildAuthorization, splitSig } from './sigs.js';
+import * as kit from './relaykit.js';
+
+const { big } = kit;
 
 const E = () => globalThis.ethers;
 
@@ -90,24 +93,10 @@ export async function signGasRequest() {
 }
 export const GAS_GIFT = '0.005';
 
-// ───────── 검증 · 설명 ─────────
-const big = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' && /^\d+$/.test(v) ? BigInt(v) : v]));
-export function relayParts(obj) {
-  if (obj.k === 'fwd') return { domain: domainOf.fwd(), types: { ForwardRequest: TYPES.ForwardRequest }, message: big(obj.req), expected: obj.req.from };
-  if (obj.k === 'auth') return { domain: domainOf.token(), types: { TransferWithAuthorization: TYPES.TransferWithAuthorization }, message: big(obj.auth), expected: obj.auth.from };
-  if (obj.k === 'buy') return { domain: domainOf.token(), types: { ReceiveWithAuthorization: TYPES.ReceiveWithAuthorization }, message: big(obj.auth), expected: obj.auth.from };
-  if (obj.k === 'notice') return { domain: domainOf.token(), types: { DepositNotice: TYPES.DepositNotice }, message: big(obj.notice), expected: obj.notice.account };
-  if (obj.k === 'gas') return { domain: domainOf.token(), types: { GasRequest: TYPES.GasRequest }, message: big(obj.gas), expected: obj.gas.account };
-  throw new Error('알 수 없는 요청 종류');
-}
-
+// ───────── 검증 · 설명 (운영 서버와 같은 코드: core/relaykit.js) ─────────
+export const relayParts = (obj) => kit.relayParts(obj, chain.cfg);
 /** 이 브라우저에서 서명자 복원 — 대납자가 내용을 바꿨다면 여기서 드러난다 */
-export function verifyRelay(obj) {
-  const p = relayParts(obj);
-  const signer = E().verifyTypedData(p.domain, p.types, p.message, obj.sig);
-  const digest = E().TypedDataEncoder.hash(p.domain, p.types, p.message);
-  return { signer, ok: signer.toLowerCase() === p.expected.toLowerCase(), digest, ...p };
-}
+export const verifyRelay = (obj) => kit.verifyRelay(obj, chain.cfg);
 
 // ───────── 대납 실행 (수수료는 지금 연결된 지갑이 냄) ─────────
 /** signer 를 주면 그 지갑(자동 처리기)이, 안 주면 연결된 MetaMask 가 수수료를 내고 올린다 */

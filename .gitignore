@@ -2,3 +2,11 @@ node_modules/
 # 로컬 시험망용 설정
 web/app-config.local.json
 .claude/
+# 운영 서버 비밀·데이터 (절대 커밋 금지)
+server/.secrets/
+server/.secrets-local/
+server/data/
+server/data-local/
+# 로컬 시험망(hardhat)
+cache/
+artifacts/

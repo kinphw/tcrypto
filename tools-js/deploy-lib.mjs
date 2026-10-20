@@ -38,3 +38,18 @@ export async function deployAll(signer, log = console.log) {
   log(`  ✔ configureMinter (발행 한도 ${INITIAL_MINTER_ALLOWANCE.toLocaleString()} sgw)`);
   return { Forwarder, Seogilwon, SeogilwonV1, Members, Market, CoinFactory };
 }
+
+// 2판 놀이 컨트랙트: 내기판·쿠폰 시장. 서길원·중계기는 이미 있는 것을 쓰고, 내기판 관리자는 발행자.
+export async function deployGames(signer, { Seogilwon, Forwarder, admin }, log = console.log) {
+  const deploy = async (name, ...args) => {
+    const a = art(name);
+    const c = await new ethers.ContractFactory(a.abi, a.bytecode, signer).deploy(...args);
+    await c.waitForDeployment();
+    const addr = await c.getAddress();
+    log(`  ✔ ${name.padEnd(12)} ${addr}`);
+    return addr;
+  };
+  const Bets = await deploy('Bets', Seogilwon, Forwarder, admin);
+  const Coupons = await deploy('Coupons', Seogilwon, Forwarder);
+  return { Bets, Coupons };
+}

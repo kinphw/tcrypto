@@ -1,5 +1,10 @@
 [
   {
+    "name": "Bets",
+    "sourceFile": "Bets.sol",
+    "bytes": 7859
+  },
+  {
     "name": "CoinFactory",
     "sourceFile": "CoinFactory.sol",
     "bytes": 5275
@@ -8,6 +13,11 @@
     "name": "FriendCoin",
     "sourceFile": "CoinFactory.sol",
     "bytes": 2775
+  },
+  {
+    "name": "Coupons",
+    "sourceFile": "Coupons.sol",
+    "bytes": 5025
   },
   {
     "name": "Forwarder",

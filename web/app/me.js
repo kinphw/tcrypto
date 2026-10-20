@@ -14,7 +14,7 @@ export function shareInvite(name) {
 const BANK_KIND = { signup: '가입 축하금', checkin: '출석', streak: '연속 출석 보너스', invite: '초대받은 보상', inviter: '초대 보상', grant: '이벤트', charge: '충전 (→ 박형원)', 'charge-refund': '충전 되돌림', redeem: '환매 (박형원 →)' };
 
 export default async function me(page) {
-  const [m, rank, mine] = await Promise.all([api(`me/${account.address}`), api('rank'), api(`feed?mine=1&me=${account.address}&limit=60`)]);
+  const [m, rank, mine, adm] = await Promise.all([api(`me/${account.address}`), api('rank'), api(`feed?mine=1&me=${account.address}&limit=60`), api('admin/whoami').catch(() => ({}))]);
   const meA = account.address.toLowerCase();
   const rankList = (rows, val) => html`<ol class="rank">${rows.map((r, i) => html`<li class="${r.addr === meA ? 'me' : ''}"><span class="n">${i + 1}</span><b>${who(r.addr)}</b><span class="v">${val(r)}</span></li>`)}</ol>`;
   render(page, html`
@@ -44,6 +44,7 @@ export default async function me(page) {
 
     <section class="card"><h2>내 활동</h2>${mine.length ? html`<ul class="feed">${mine.map(feedItem)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
+    ${adm.admin ? html`<section class="card"><h2>관리자</h2><p class="muted small">이 브라우저는 관리자로 로그인돼 있어요. 다른 사람에게는 안 보여요.</p><a class="btn primary" href="/admin/" target="_blank">관리 페이지 열기</a></section>` : ''}
     <section class="card"><h2>계정</h2>
       ${account.kind === 'local' ? html`<p class="muted small">${m.vault ? '✔ 다른 기기에서 닉네임 + 비밀번호로 로그인할 수 있어요' : '⚠ 아직 서버에 로그인 정보가 없어요. 비밀번호 바꾸기를 한 번 하면 저장돼요'}</p>
         <button class="btn" id="pwc">비밀번호 바꾸기</button>

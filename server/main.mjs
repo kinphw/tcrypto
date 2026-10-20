@@ -169,6 +169,8 @@ async function api(req, res, url, ip) {
   if (p.startsWith('/api/admin/')) {
     const name = p.slice('/api/admin/'.length);
     if (M === 'POST' && name === 'login') return send(res, 200, admin.login(req, res, await readBody(req), ip));
+    // 앱의 '나' 화면이 이 브라우저가 관리자로 로그인돼 있는지만 묻는다 (관리 바로가기 표시용, 다른 정보 없음)
+    if (M === 'GET' && name === 'whoami') return send(res, 200, { admin: admin.isAdmin(req) });
     if (!admin.isAdmin(req)) return send(res, 401, { error: '로그인이 필요합니다' });
     if (M === 'POST' && req.headers['x-tc'] !== '1') return send(res, 403, { error: '잘못된 요청' }); // 다른 사이트에서 몰래 보내는 요청 차단
     if (M === 'POST' && name === 'logout') return send(res, 200, admin.logout(req, res));

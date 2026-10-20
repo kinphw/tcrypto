@@ -1,6 +1,48 @@
 # 청라더헤븐 — 원화 스테이블코인 서길원(sgw) 거래소
 
-**링크: <https://kinphw.github.io/tcrypto/>** · 휴대폰: <https://link.metamask.io/dapp/kinphw.github.io/tcrypto> (MetaMask 앱 안에서 바로 열림)
+**링크: <https://tcrypto.kro.kr/>** (친구용 화면, MetaMask 없이 바로 시작) · 실험실(블록체인 들여다보기): <https://tcrypto.kro.kr/lab/> · 관리: <https://tcrypto.kro.kr/admin/>
+예전 주소 kinphw.github.io/tcrypto 는 새 주소로 넘겨줍니다.
+
+## 2판: 운영 서버 + 가상 은행 + 내기판·쿠폰
+
+```
+tcrypto.kro.kr ─ Apache(SSL) ─→ Node 서버 127.0.0.1:4300 (pm2 'tcrypto')
+                                 ├ /        친구용 화면 (web/index.html + web/app/)   홈·내기·쿠폰·상점·나
+                                 ├ /lab/    예전 화면 그대로 (web/lab.html + web/js/)   발행자 MetaMask 작업·들여다보기
+                                 ├ /admin/  관리 페이지 (server/admin/, 비밀번호)
+                                 └ /api/    서명 요청 접수 → 거래 대기열 → 블록체인 (수수료는 운영 지갑)
+```
+
+- **가상 은행**: 서버 안의 원화 장부(블록체인 밖 = 진짜 은행 자리). 가입 10만·출석 1만·초대 5만 원이 **통장으로** 들어온다.
+  서길원은 언제나 **충전**(통장 → 준비금 → 발행)으로만 생기고 **환매**(소각 → 준비금 → 통장)로 돌아간다 → **준비금 = 총발행량**이 늘 맞는다(관리 페이지 대사).
+  현금은 오가지 않는다(내기판이 있으므로 진짜 원화를 받으면 도박·무허가 지급수단 문제).
+- **운영 지갑**(`server/.secrets/operator.key`): 발행 담당(한도 있음)·정지·차단·내기판 관리자. 한도 충전·업그레이드·소유권은 발행자 MetaMask 에 그대로.
+- **내기판**(`contracts/Bets.sol`): 누구나 열고 만든 사람이 결과. 판돈은 이긴 쪽에 건 금액 비율로, 결과 1시간 뒤 서버가 자동 정산(그 사이 관리자 정정 가능).
+- **쿠폰**(`contracts/Coupons.sol`): 누구나 만들어 팔고·선물하고·쓰기(만든 사람에게 사용 기록).
+- 친구들은 **브라우저 지갑**(복구 문구 12단어를 그 기기에 보관)으로 바로 시작. MetaMask 연결은 선택.
+
+### 운영
+```powershell
+pm2 start ecosystem.config.cjs; pm2 save   # 서버 켜기 (pm2 logs tcrypto)
+node server/setup.mjs key                  # 운영 지갑 주소 보기 (없으면 만듦)
+node server/setup.mjs password             # 관리 페이지 비밀번호 정하기
+node server/setup.mjs deploy-games         # 내기판·쿠폰 배포 (운영 지갑 ETH 필요) → app-config.json
+# 공개: C:\projects\apache_config\enable_tcrypto.ps1 (관리자 PowerShell, DNS → 80 → 인증서 → 443)
+```
+
+### 로컬 시험 (hardhat)
+```powershell
+npx hardhat --config hardhat.config.cjs node        # 8545
+node tools-js/stable-test.mjs http://127.0.0.1:8545 <hardhat 0번 개인키>
+node tools-js/games-test.mjs  http://127.0.0.1:8545 <같은 키>
+node server/setup.mjs local <같은 키> --config web/app-config.local.json --secrets server/.secrets-local --data server/data-local
+node server/main.mjs --config web/app-config.local.json --secrets server/.secrets-local --data server/data-local --port 4301
+node tools-js/server-test.mjs http://127.0.0.1:4301 <로컬 관리 비밀번호>
+```
+
+---
+
+아래는 1판(브라우저 + MetaMask만으로 운영하던 때) 설명입니다. 실험실(/lab)은 지금도 이대로 동작합니다.
 
 이더리움 공식 시험망 **세폴리아(Sepolia)** 위에서 돌아가는 작은 경제 실험실입니다.
 실제 원화 스테이블코인(USDC·USDT 구조)을 최대한 비슷하게 흉내 내고, 블록체인에 실제로 어떻게 기록되는지 원본 데이터까지 들여다볼 수 있게 만들었습니다.

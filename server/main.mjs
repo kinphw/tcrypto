@@ -10,7 +10,7 @@ import { WEB, ROOT, PORT, HOST, CONFIG_FILE } from './lib/config.mjs';
 import { db, now, settings } from './lib/db.mjs';
 import { cfg, contracts, operator, provider } from './lib/chain.mjs';
 import { startQueue, getJob, jobView } from './lib/queue.mjs';
-import { startIndexer, onIndexed, indexedTo, chainHead } from './lib/indexer.mjs';
+import { startIndexer, onIndexed, indexedTo, chainHead, evs } from './lib/indexer.mjs';
 import { balance, history, reconcile } from './lib/bank.mjs';
 import { checkin, checkinState, getUser } from './lib/rewards.mjs';
 import { acceptRelay, acceptJoin, friendly } from './lib/intake.mjs';
@@ -107,6 +107,12 @@ async function api(req, res, url, ip) {
     if (p === '/api/status') return send(res, 200, { ok: true, head: chainHead(), indexed: indexedTo(), operator: !!operator });
     if (p === '/api/names') return send(res, 200, names());
     if (p.startsWith('/api/me/') && isAddr(p.slice(8))) return send(res, 200, await me(p.slice(8)));
+    if (p.startsWith('/api/fwd-nonce/') && isAddr(p.slice(15))) {
+      // 대납 중계 순서 번호: 체인의 번호 + 아직 처리 중인 이 사람의 중계 요청 수 (연달아 여러 개를 서명해도 겹치지 않게)
+      const a = p.slice(15);
+      const [n, pending] = [await contracts.Forwarder.nonces(a), db.prepare("SELECT COUNT(*) n FROM jobs WHERE addr = ? AND target = 'Forwarder' AND status IN ('queued', 'sent')").get(lc(a)).n];
+      return send(res, 200, { nonce: (n + BigInt(pending)).toString() });
+    }
     if (p.startsWith('/api/job/')) { const j = getJob(Number(p.slice(9))); return j ? send(res, 200, jobView(j)) : send(res, 404, { error: '없음' }); }
     if (p === '/api/feed') return send(res, 200, feed(Math.min(Number(q.get('limit')) || 40, 100), q.get('mine') ? viewer : null));
     if (p === '/api/rank') return send(res, 200, ranking());
@@ -115,11 +121,19 @@ async function api(req, res, url, ip) {
       const b = allBets().find((x) => x.id === Number(p.split('/')[3]));
       if (!b) return send(res, 404, { error: '없는 내기' });
       const nm = names();
-      const bettors = Object.entries(b.stakes).map(([addr, st]) => ({ addr, name: nm[addr] || null, stakes: st })).sort((x, y) => y.stakes.reduce((a, c) => a + c, 0) - x.stakes.reduce((a, c) => a + c, 0));
-      return send(res, 200, { ...betView(b, viewer), bettors });
+      const people = Object.entries(b.stakes).map(([addr, st]) => ({ addr, name: nm[addr] || null, stakes: st })).sort((x, y) => y.stakes.reduce((a, c) => a + c, 0) - x.stakes.reduce((a, c) => a + c, 0));
+      return send(res, 200, { ...betView(b, viewer), people });
     }
     if (p === '/api/coupons') return send(res, 200, allCoupons().map((c) => couponView(c, viewer)).reverse());
-    if (p === '/api/shop') return send(res, 200, allProducts());
+    if (p === '/api/shop') {
+      const data = allProducts();
+      if (viewer) { // 내 가게가 받은 주문
+        const pr = new Map(data.products.map((x) => [x.id, x]));
+        data.orders = evs('Market', 'Purchased', 'AND a2 = ?', viewer).reverse().slice(0, 30)
+          .map((e) => ({ buyer: lc(e.args.buyer), name: pr.get(Number(e.args.productId))?.name, quantity: Number(e.args.quantity), total: Number(e.args.total), note: e.args.note, time: e.time }));
+      }
+      return send(res, 200, data);
+    }
     const img = p.match(/^\/api\/img\/(product|coupon)\/(\d+)$/);
     if (img) {
       const r = db.prepare('SELECT mime, data FROM images WHERE kind = ? AND id = ?').get(img[1], Number(img[2]));
@@ -173,6 +187,10 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) return await api(req, res, url, ip);
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: '허용되지 않음' });
     if (url.pathname === '/app-config.json' || url.pathname === '/lab/app-config.json') return serveFile(res, CONFIG_FILE, path.dirname(CONFIG_FILE));
+    // 실험실(예전 화면): /lab/ → web/lab.html, 나머지 /lab/... 는 web/... 를 그대로 (상대 경로가 그대로 맞도록)
+    if (url.pathname === '/lab' ) { res.writeHead(301, { Location: '/lab/' }); return res.end(); }
+    if (url.pathname === '/lab/' || url.pathname === '/lab/index.html') return serveFile(res, path.join(WEB, 'lab.html'), WEB);
+    if (url.pathname.startsWith('/lab/')) return serveFile(res, path.join(WEB, decodeURIComponent(url.pathname.slice(5))), WEB);
     if (url.pathname === '/admin') { res.writeHead(301, { Location: '/admin/' }); return res.end(); }
     if (url.pathname.startsWith('/admin/')) {
       res.setHeader('X-Frame-Options', 'DENY');

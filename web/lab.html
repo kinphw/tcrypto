@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>청라더헤븐 · 서길원 거래소</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23141414'/><text x='16' y='23' font-size='19' font-weight='700' text-anchor='middle' fill='%23ffffff' font-family='sans-serif'>원</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="vendor/ethers.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <aside id="nav" aria-label="메뉴"></aside>
+    <div id="main">
+      <header id="topbar">
+        <button id="navToggle" class="icon-btn" aria-label="메뉴 열기">☰</button>
+        <form id="search" role="search">
+          <input id="searchInput" type="search" placeholder="닉네임 · 주소 · 거래 해시 · 블록 번호" autocomplete="off">
+        </form>
+        <div id="chainStatus" class="chip" title="노드 연결 상태">연결 중…</div>
+        <button id="walletBtn" class="btn btn-primary">MetaMask 연결</button>
+      </header>
+      <main id="view"><div class="loading">불러오는 중…</div></main>
+    </div>
+  </div>
+  <section id="rpclog" class="drawer" aria-label="RPC 통신 기록">
+    <header>
+      <button id="rpclogToggle" class="drawer-handle">⇅ 공개 노드와의 대화 (JSON-RPC) <span id="rpcCount" class="muted"></span></button>
+      <span class="spacer"></span>
+      <label class="muted small"><input type="checkbox" id="rpclogPause"> 일시정지</label>
+      <button id="rpclogClear" class="btn btn-ghost small">지우기</button>
+    </header>
+    <div id="rpclogBody"></div>
+  </section>
+  <div id="toasts" aria-live="polite"></div>
+</body>
+</html>

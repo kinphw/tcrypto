@@ -1,9 +1,9 @@
-name: Deploy web to GitHub Pages
+name: GitHub Pages (새 주소 tcrypto.kro.kr 로 넘겨주는 안내)
 
 on:
   push:
     branches: [main]
-    paths: ['web/**', '.github/workflows/pages.yml']
+    paths: ['pages/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: pages
       - id: deployment
         uses: actions/deploy-pages@v4

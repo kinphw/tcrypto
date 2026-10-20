@@ -1,6 +1,6 @@
 // 홈: 통장(가상 원화)과 지갑(서길원), 충전·환매·보내기·받기, 출석, 친구 소식
 import {
-  app, api, account, html, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCharge, signPay, amountPicker, bindAmount, onSettled, addrOfName, nameOf, track,
+  bindDetails, techFold, app, api, account, html, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCharge, signPay, amountPicker, bindAmount, onSettled, addrOfName, nameOf, track,
 } from './core.js';
 import { inviteLink, shareInvite } from './me.js';
 
@@ -21,7 +21,9 @@ const FEED_TEXT = {
   'coupon-use': (f) => html`<b>${who(f.who)}</b> 님이 “${f.title}” 쿠폰을 썼어요 ✔`,
   'coin-new': (f) => html`<b>${who(f.who)}</b> 님이 코인 ${f.title} 을 만들었어요`,
 };
-export const feedItem = (f) => html`<li><span>${(FEED_TEXT[f.kind] || (() => f.kind))(f)}</span><time>${ago(f.time)}</time></li>`;
+export const feedItem = (f, i) => html`<li data-i="${i}" title="눌러서 블록체인 원본 보기"><span>${(FEED_TEXT[f.kind] || (() => f.kind))(f)}</span><time>${ago(f.time)}</time></li>`;
+/** 피드 한 줄 → 원본 보기 시트 내용 */
+export const feedDetail = (f) => ({ tx: f.tx, block: f.raw?.block, contract: f.raw?.contract, event: f.raw?.event, args: f.raw?.args, addrs: [['누가', f.who], ['상대', f.to]] });
 
 export default async function home(page, params, { refreshMe }) {
   const draw = async () => {
@@ -53,14 +55,16 @@ export default async function home(page, params, { refreshMe }) {
         ${c.done ? html`<span class="stamp">✔</span>` : html`<button class="btn primary" id="checkin">출석</button>`}
       </section>
 
+      ${techFold([['내 지갑 주소', account.address, 'addr'], ['서길원 토큰 주소', app.cfg.contracts.Seogilwon, 'addr'], ['발행사(운영 지갑)', app.cfg.operator, 'addr'], ['네트워크', `${app.cfg.network.name} (체인 번호 ${app.cfg.network.chainId})`], ['통장 원화', `${won(m.bank)}원 — 블록체인 밖 가상 은행 장부`], ['지갑 서길원', `${won(m.sgw)} sgw — 블록체인 위 서길원 장부`]], '내 계정 블록체인 정보')}
+
       <section class="card invite">
         <div><b>친구 초대하면 둘 다 ${won(r.inviteReward)}원</b><div class="muted small">지금까지 ${m.invited}명 초대</div></div>
         <button class="btn" id="share">초대하기</button>
       </section>
 
       <section class="card">
-        <div class="card-head"><h2>친구들 소식</h2></div>
-        ${feed.length ? html`<ul class="feed">${feed.map(feedItem)}</ul>` : html`<p class="muted">아직 조용해요. 첫 내기를 열어 보세요!</p>`}
+        <div class="card-head"><h2>친구들 소식</h2><span class="muted small">눌러서 원본 보기</span></div>
+        ${feed.length ? html`<ul class="feed" id="feed">${feed.map(feedItem)}</ul>` : html`<p class="muted">아직 조용해요. 첫 내기를 열어 보세요!</p>`}
       </section>`);
 
     $('#checkin', page)?.addEventListener('click', busy($('#checkin', page), async () => {
@@ -69,6 +73,7 @@ export default async function home(page, params, { refreshMe }) {
       toast(got ? `출석 ${res.streak}일째 · 통장 +${won(got)}원${res.paid.length > 1 ? ' (연속 보너스!)' : ''}` : res.capped ? '오늘 보상이 모두 소진됐어요. 출석은 기록됐어요' : '오늘은 이미 출석했어요', { kind: 'ok' });
       draw();
     }));
+    bindDetails(page, feed, feedDetail);
     $('#share', page).addEventListener('click', () => shareInvite(m.user.name));
     $('#charge', page).addEventListener('click', () => chargeSheet(m));
     $('#redeem', page).addEventListener('click', () => redeemSheet(m));

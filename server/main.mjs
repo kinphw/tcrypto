@@ -69,7 +69,7 @@ function serveFile(res, file, root) {
     if (err) return send(res, 404, { error: '없음' });
     if (st.isDirectory()) return serveFile(res, path.join(resolved, 'index.html'), root);
     const ext = path.extname(resolved).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300' });
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     fs.createReadStream(resolved).pipe(res);
   });
 }

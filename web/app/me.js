@@ -1,6 +1,7 @@
 // 나: 초대 · 순위 · 통장 내역 · 내 활동 · 백업 · 실험실
 import { app, api, account, html, render, $, $$, won, who, ago, sheet, toast, busy, revealPhrase, changePassword, lock, forgetWallet, connectMetaMask, hasMetaMask, short } from './core.js';
-import { feedItem } from './home.js';
+import { feedItem, feedDetail } from './home.js';
+import { bindDetails, detailSheet, labAddr } from './core.js';
 
 export const inviteLink = (name) => `${location.origin}/?i=${encodeURIComponent(name)}`;
 export function shareInvite(name) {
@@ -19,7 +20,7 @@ export default async function me(page) {
   render(page, html`
     <section class="profile card">
       <div class="avatar">${(m.user.name || '?').slice(0, 1)}</div>
-      <div><h1>${m.user.name}</h1><div class="muted small mono">${short(account.address)} · ${account.kind === 'metamask' ? 'MetaMask' : '이 브라우저 지갑'}</div></div>
+      <div><h1>${m.user.name}</h1><div class="muted small">${account.kind === 'metamask' ? 'MetaMask 지갑' : '이 브라우저 지갑'} · <a href="${labAddr(account.address)}" target="_blank">블록체인에서 보기</a></div><code class="small addr">${account.address}</code></div>
     </section>
 
     <section class="card invite">
@@ -33,9 +34,11 @@ export default async function me(page) {
       <div data-rv="cp" hidden>${rank.coupons.length ? html`<ol class="rank">${rank.coupons.map((c, i) => html`<li><span class="n">${i + 1}</span><a href="#/coupons/${c.id}"><b>${c.name}</b></a><span class="v">${c.sold}장 팔림</span></li>`)}</ol>` : html`<p class="muted">아직 없어요</p>`}</div>
     </section>
 
-    <section class="card"><h2>통장 내역</h2>
+    <section class="card"><h2>통장 내역 <small class="muted">블록체인 밖 · 가상 은행 장부</small></h2>
       ${m.history.length ? html`<ul class="list">${m.history.map((t) => html`<li><span>${BANK_KIND[t.kind] || t.kind}<span class="muted small"> · ${ago(t.at)}</span></span><b class="${t.amount > 0 ? 'ok' : ''}">${t.amount > 0 ? '+' : ''}${won(t.amount)}원</b></li>`)}</ul>` : html`<p class="muted">아직 없어요</p>`}
     </section>
+
+    <section class="card"><h2>내 요청 기록 <small class="muted">눌러서 원본 보기</small></h2>${m.jobs.length ? html`<ul class="list jobs">${m.jobs.map((j, i) => html`<li data-j="${i}"><span>${j.label}<span class="muted small"> · ${ago(j.createdAt)}</span></span><b class="${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : ''}">${{ done: '완료', failed: '실패', queued: '대기', sent: '처리 중' }[j.status] || j.status}</b></li>`)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
     <section class="card"><h2>내 활동</h2>${mine.length ? html`<ul class="feed">${mine.map(feedItem)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
@@ -51,6 +54,11 @@ export default async function me(page) {
     </section>
     <p class="fine">청라더헤븐의 원화와 서길원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
 
+  bindDetails(page, mine, feedDetail);
+  $('[data-j]', page).forEach((li) => li.addEventListener('click', () => {
+    const j = m.jobs[Number(li.dataset.j)];
+    detailSheet({ title: j.label, tx: j.tx, addrs: [['요청한 사람', account.address]], note: j.tx ? `내가 서명한 요청을 발행사 서버가 블록체인에 올린 거래예요 (수수료는 서버가 냄). 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` : `아직 블록체인에 올라가지 않았어요. 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` });
+  }));
   $('#share', page).addEventListener('click', () => shareInvite(m.user.name));
   $$('[data-r]', page).forEach((b) => b.addEventListener('click', () => {
     $$('[data-r]', page).forEach((x) => x.classList.toggle('on', x === b));

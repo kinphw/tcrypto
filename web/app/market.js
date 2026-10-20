@@ -1,5 +1,5 @@
 // 쿠폰 시장과 상점가
-import { app, api, account, html, raw, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled, addrOfName, shrinkImage, hex } from './core.js';
+import { techFold, app, api, account, html, raw, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled, addrOfName, shrinkImage, hex } from './core.js';
 
 const me = () => account.address.toLowerCase();
 const imgOr = (kind, x, emoji) => (x.image ? html`<img src="/api/img/${kind}/${x.id}" alt="" loading="lazy">` : html`<span class="ph">${emoji}</span>`);
@@ -61,6 +61,7 @@ function couponSheet(c) {
     <h2>${c.name}</h2>
     <p class="muted small">${who(c.creator)} 님이 만든 쿠폰 · 남은 ${c.left}/${c.supply}장 · 사용 ${c.redeemed}장</p>
     ${c.description ? html`<p>${c.description}</p>` : ''}
+    ${techFold([['쿠폰 컨트랙트', app.cfg.contracts.Coupons, 'addr'], ['쿠폰 번호', String(c.id)], ['만든 사람', c.creator, 'addr'], ['원본', { price: c.price, supply: c.supply, sold: c.sold, redeemed: c.redeemed, onSale: c.onSale }, 'json']])}
     ${c.mine ? html`<div class="mybox">내가 가진 쿠폰 <b>${c.mine}장</b></div>` : ''}
     ${!isCreator && c.onSale && c.left > 0 ? html`<div class="block"><h3>사기 · ${won(c.price)} sgw</h3>${stepper('n', c.left)}<div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} sgw</div><button class="btn primary big" id="buy">사기</button></div>` : ''}
     ${c.mine ? html`<div class="block"><h3>쓰기</h3><input id="note" maxlength="100" placeholder="만든 사람에게 남길 말 (예: 금요일 저녁에!)"><button class="btn primary" id="use">1장 쓰기</button></div>
@@ -162,6 +163,7 @@ function buySheet(p) {
   const mineShop = p.shop?.owner === me();
   sheet(html`<div class="cp-hero">${imgOr('product', p, '🛍')}</div><h2>${p.name}</h2>
     <p class="muted small">${p.shop?.name} · ${who(p.shop?.owner)} · 재고 ${p.stock}</p>${p.description ? html`<p>${p.description}</p>` : ''}
+    ${techFold([['상점가 컨트랙트', app.cfg.contracts.Market, 'addr'], ['상품 번호', String(p.id)], ['가게 주인', p.shop?.owner, 'addr']])}
     ${mineShop ? html`<p class="muted">내 가게 상품이에요</p>` : html`${stepper('n', p.stock)}<input id="note" maxlength="100" placeholder="가게에 남길 말 (선택)">
       <div class="balline">합계 <b id="tot"></b> · 지갑 ${won(app.me.sgw)} sgw</div><button class="btn primary big" id="buy">사기</button>`}`, {
     onMount: (b, close) => {

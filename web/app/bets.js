@@ -1,6 +1,6 @@
 // 내기판: 누구나 질문과 선택지로 내기를 열고, 마감 전까지 서길원을 건다.
 // 마감 뒤 만든 사람이 결과를 정하면, 이긴 쪽에 건 사람들이 전체 판돈을 건 금액 비율대로 자동으로 나눠 받는다.
-import { app, api, account, html, render, $, $$, won, who, until, when, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled } from './core.js';
+import { techFold, app, api, account, html, render, $, $$, won, who, until, when, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled } from './core.js';
 
 const STATE = { open: '진행 중', closed: '마감 · 결과 기다림', resolved: '결과 나옴', cancelled: '취소 · 환불' };
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -73,7 +73,8 @@ async function detail(page, id) {
         ${isCreator && b.state === 'open' && b.pool === 0 ? html`<button class="btn ghost danger" id="cancel">아무도 안 걸었으니 취소</button>` : ''}
       </section>
       ${b.people?.length ? html`<section class="card"><h2>건 사람들</h2><ul class="list">${b.people.map((x) => html`<li><b>${x.name || who(x.addr)}</b><span class="muted">${x.stakes.map((s, i) => (s ? `${b.options[i]} ${won(s)}` : '')).filter(Boolean).join(' · ')}</span></li>`)}</ul></section>` : ''}
-      <section class="card"><button class="btn" id="shareBet">이 내기 친구에게 보내기</button></section>`);
+      <section class="card"><button class="btn" id="shareBet">이 내기 친구에게 보내기</button>
+        ${techFold([['내기판 컨트랙트', app.cfg.contracts.Bets, 'addr'], ['내기 번호', String(b.id)], ['만든 사람', b.creator, 'addr'], ['마감 (유닉스 시각)', String(b.closesAt)], ['선택지별 판돈', Object.fromEntries(b.options.map((o, i) => [o, b.pools[i]])), 'json'], ['건 사람 원본', b.people, 'json']])}</section>`);
 
     $$('[data-opt]', page).forEach((btn) => btn.addEventListener('click', () => betSheet(b, Number(btn.dataset.opt))));
     $$('[data-res]', page).forEach((btn) => btn.addEventListener('click', busy(btn, async () => {

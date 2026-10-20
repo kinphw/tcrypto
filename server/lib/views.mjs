@@ -133,7 +133,7 @@ export function feed(limit = 40, me = null) {
   const items = [];
   for (const r of rows) {
     const a = JSON.parse(r.args);
-    const base = { time: r.time, tx: r.tx };
+    const base = { time: r.time, tx: r.tx, raw: { block: r.block, contract: r.contract, event: r.name, args: a } }; // raw: '자세히 보기'용 이벤트 원본
     const k = `${r.contract}.${r.name}`;
     if (k === 'Members.Joined') items.push({ ...base, kind: 'join', who: lc(a.who) });
     else if (k === 'Seogilwon.Transfer') {

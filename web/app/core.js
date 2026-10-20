@@ -279,6 +279,45 @@ export function bindAmount(root, id, max = null) {
   return () => { const v = Math.floor(Number(input.value)); if (!(v > 0)) throw new Error('금액을 정해 주세요'); return v; };
 }
 
+// ───────── 자세히 보기: 평소엔 숨기고, 누르면 블록체인 원본 ─────────
+export const labTx = (h) => `/lab/#/tx/${h}`;
+export const labAddr = (a) => `/lab/#/address/${a}`;
+export const labBlock = (n) => `/lab/#/blocks/${n}`;
+const scan = (kind, id) => (app.cfg.network.explorer ? `${app.cfg.network.explorer}/${kind}/${id}` : null);
+const contractName = { Seogilwon: '서길원 (토큰)', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기' };
+
+/** 블록체인 기록 하나를 원본 그대로 보여 주는 시트. addrs: [[이름표, 주소], …] */
+export function detailSheet({ title = '블록체인 기록', tx, block, contract, event, args, addrs = [], note } = {}) {
+  const cAddr = contract ? app.cfg.contracts[contract] : null;
+  sheet(html`<h2>${title}</h2>
+    <p class="muted small">${note || `${app.cfg.network.name} 블록체인에 공개된 기록이에요. 누구나 같은 내용을 볼 수 있고 지울 수 없어요.`}</p>
+    <dl class="kv">
+      ${tx ? html`<dt>거래 해시</dt><dd><code>${tx}</code></dd>` : ''}
+      ${block != null ? html`<dt>블록</dt><dd><a href="${labBlock(block)}" target="_blank">#${won(block)}</a></dd>` : ''}
+      ${cAddr ? html`<dt>컨트랙트</dt><dd>${contractName[contract] || contract}<br><a href="${labAddr(cAddr)}" target="_blank"><code>${cAddr}</code></a></dd>` : ''}
+      ${event ? html`<dt>이벤트</dt><dd><code>${event}</code></dd>` : ''}
+      ${addrs.filter(([, a]) => a).map(([label, a]) => html`<dt>${label}</dt><dd>${nameOf(a) ? html`<b>${nameOf(a)}</b><br>` : ''}<a href="${labAddr(a)}" target="_blank"><code>${a}</code></a></dd>`)}
+    </dl>
+    ${args ? html`<details class="raw" open><summary>이벤트 원본 (JSON)</summary><pre>${JSON.stringify(args, null, 2)}</pre></details>` : ''}
+    ${tx ? html`<div class="row" style="margin-top:12px"><a class="btn primary" href="${labTx(tx)}" target="_blank">실험실에서 거래 해부</a>${scan('tx', tx) ? html`<a class="btn" href="${scan('tx', tx)}" target="_blank" rel="noopener">이더스캔</a>` : ''}</div>` : ''}`);
+}
+
+/** 접힌 '블록체인 정보' 칸: 펴면 주소·번호·원본이 보인다. rows: [[이름표, 값, {addr|tx|json}], …] */
+export function techFold(rows, title = '블록체인 정보') {
+  const cell = ([, v, kind]) => kind === 'addr' ? html`${nameOf(v) ? html`<b>${nameOf(v)}</b><br>` : ''}<a href="${labAddr(v)}" target="_blank"><code>${v}</code></a>`
+    : kind === 'tx' ? html`<a href="${labTx(v)}" target="_blank"><code>${v}</code></a>`
+    : kind === 'json' ? html`<pre>${JSON.stringify(v, null, 2)}</pre>` : html`<code>${v}</code>`;
+  return html`<details class="raw tech"><summary>${title}</summary><dl class="kv">${rows.filter((r) => r[1] != null && r[1] !== '').map((r) => html`<dt>${r[0]}</dt><dd>${cell(r)}</dd>`)}</dl></details>`;
+}
+
+/** 피드 목록(li[data-i])을 누르면 그 기록의 원본을 연다 (안쪽 링크를 누른 경우는 그 링크로) */
+export function bindDetails(root, items, toDetail) {
+  $$('[data-i]', root).forEach((li) => li.addEventListener('click', (e) => {
+    if (e.target.closest('a')) return;
+    detailSheet(toDetail(items[Number(li.dataset.i)]));
+  }));
+}
+
 /** 사진 → 24KB 이하 JPEG 바이트 (블록체인 이벤트에 담을 수 있는 크기) */
 export async function shrinkImage(file, maxBytes = 22000) {
   const img = await createImageBitmap(file);

@@ -55,7 +55,7 @@ export default async function me(page) {
     <p class="fine">청라더헤븐의 원화와 서길원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
 
   bindDetails(page, mine, feedDetail);
-  $('[data-j]', page).forEach((li) => li.addEventListener('click', () => {
+  $$('[data-j]', page).forEach((li) => li.addEventListener('click', () => {
     const j = m.jobs[Number(li.dataset.j)];
     detailSheet({ title: j.label, tx: j.tx, addrs: [['요청한 사람', account.address]], note: j.tx ? `내가 서명한 요청을 발행사 서버가 블록체인에 올린 거래예요 (수수료는 서버가 냄). 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` : `아직 블록체인에 올라가지 않았어요. 상태: ${j.status}${j.error ? ` — ${j.error}` : ''}` });
   }));

@@ -27,12 +27,16 @@ export const feedDetail = (f) => ({ tx: f.tx, block: f.raw?.block, contract: f.r
 
 export default async function home(page, params, { refreshMe }) {
   const draw = async () => {
-    const [m, feed] = await Promise.all([refreshMe(), api('feed?limit=25')]);
+    const [m, feed, bets] = await Promise.all([refreshMe(), api('feed?limit=25'), api(`bets?me=${account.address}`).catch(() => [])]);
+    // 내가 만든 내기 중 마감됐는데 아직 결과를 안 정한 것
+    const toResolve = bets.filter((x) => x.state === 'closed' && x.creator === account.address.toLowerCase());
     const c = m.checkin || {};
     const r = app.cfg.rewards;
     const pending = m.jobs.filter((j) => j.status === 'queued' || j.status === 'sent');
     render(page, html`
       <section class="hello"><h1>${m.user.name} 님</h1>${pending.length ? html`<span class="pending"><span class="spin"></span> 처리 중 ${pending.length}건</span>` : ''}</section>
+
+      ${toResolve.map((x) => html`<a class="card resolve-me" href="#/bets/${x.id}"><span class="big-emoji">⚑</span><div><b>결과를 정해 주세요</b><div class="small">“${x.question}” 내기가 마감됐어요 · ${x.bettors ? `판돈 ${won(x.pool)} phw · ${x.bettors}명이 기다려요` : '아무도 안 걸었어요'}</div></div><span class="go">›</span></a>`)}
 
       <div class="cols2"><div class="col">
       <section class="money">

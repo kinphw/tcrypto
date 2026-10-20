@@ -262,3 +262,10 @@ code.addr { display: block; margin-top: 4px; color: var(--muted); }
 
 /* 맨 아래 작은 글씨 */
 .credit { text-align: center; font-size: 11px; color: var(--muted); opacity: .7; padding: 8px 16px 4px; letter-spacing: .02em; }
+
+/* 홈: 결과를 정해 달라는 카드 */
+.card.resolve-me { display: flex; align-items: center; gap: 12px; background: #fff6dc; border-color: #f2d27a; color: #5c4300; }
+.card.resolve-me .big-emoji { font-size: 28px; }
+.card.resolve-me div { flex: 1; min-width: 0; }
+.card.resolve-me .go { font-size: 24px; }
+@media (prefers-color-scheme: dark) { .card.resolve-me { background: #3a2d10; border-color: #6b5420; color: #f6d68b; } }

@@ -140,12 +140,18 @@ export async function shop(page) {
           <div class="pic">${imgOr('product', p, '🛍')}</div><b>${p.name}</b><span class="muted small">${p.shop?.name} · ${who(p.shop?.owner)}</span>
           <span class="price">${won(p.price)} <small>sgw</small></span><span class="muted small">재고 ${p.stock}${p.sold ? ` · ${p.sold}개 팔림` : ''}</span></button>`)}</div>`
         : html`<div class="empty"><div class="big-emoji">🛍</div><p>아직 파는 물건이 없어요</p></div>`}
-      ${myShops.map((s) => html`<section class="card"><div class="card-head"><h2>내 가게 · ${s.name}</h2><button class="btn small" data-list="${s.id}">＋ 상품 올리기</button></div>
-        <ul class="list">${products.filter((p) => p.shopId === s.id).map((p) => html`<li><b>${p.name}</b><span class="muted">${won(p.price)} sgw · 재고 ${p.stock} · ${p.sold}개 팔림 ${p.active ? '' : '· 판매 중지'}</span></li>`)}</ul>
+      ${myShops.map((s) => html`<section class="card"><div class="card-head"><h2>내 가게 · ${s.name}${s.open ? '' : html` <span class="tag cancelled">문 닫음</span>`}</h2><button class="btn small" data-list="${s.id}">＋ 상품 올리기</button></div>
+        <ul class="list">${products.filter((p) => p.shopId === s.id).map((p) => html`<li><span><b>${p.name}</b><br><span class="muted small">${won(p.price)} sgw · 재고 ${p.stock} · ${p.sold}개 팔림${p.active ? '' : ' · 판매 중지'}</span></span><button class="btn small" data-edit="${p.id}">수정</button></li>`)}</ul>
+        <button class="btn ghost small" data-shop="${s.id}" data-open="${s.open ? '0' : '1'}">${s.open ? '가게 문 닫기 (잠시 쉬기)' : '가게 문 열기'}</button>
         ${orders.length ? html`<h3>받은 주문</h3><ul class="list">${orders.map((o) => html`<li><b>${who(o.buyer)}</b> ${o.name} ×${o.quantity}<span class="muted">${won(o.total)} sgw${o.note ? ` · “${o.note}”` : ''} · ${ago(o.time)}</span></li>`)}</ul>` : ''}</section>`)}`);
     $$('[data-p]', page).forEach((b) => b.addEventListener('click', () => buySheet(products.find((p) => p.id === Number(b.dataset.p)))));
     $('#open', page)?.addEventListener('click', openShop);
     $$('[data-list]', page).forEach((b) => b.addEventListener('click', () => listProduct(Number(b.dataset.list))));
+    $$('[data-edit]', page).forEach((b) => b.addEventListener('click', () => editProduct(products.find((p) => p.id === Number(b.dataset.edit)))));
+    $$('[data-shop]', page).forEach((b) => b.addEventListener('click', busy(b, async () => {
+      const open = b.dataset.open === '1';
+      await submit(await signCall('Market', 'setShopOpen', [Number(b.dataset.shop), open], { gas: 150000 }), open ? '가게 문 열기' : '가게 문 닫기');
+    })));
   };
   await draw();
   const off = onSettled(() => draw().catch(() => {}));
@@ -180,6 +186,21 @@ function openShop() {
       if (!name) throw new Error('가게 이름을 써 주세요');
       const obj = await signCall('Market', 'openShop', [name, $('#desc', b).value.trim()], { gas: 400000 });
       close(); await submit(obj, `가게 “${name}” 열기`);
+    })),
+  });
+}
+
+function editProduct(p) {
+  sheet(html`<h2>${p.name} 수정</h2>
+    <div class="row2"><div><label class="lbl">가격 (sgw)</label><input id="price" type="number" min="1" value="${p.price}"></div><div><label class="lbl">재고</label><input id="stock" type="number" min="0" value="${p.stock}"></div></div>
+    <label class="row" style="margin-top:12px"><input id="active" type="checkbox" style="width:auto" ${p.active ? 'checked' : ''}> 판매 중</label>
+    <button class="btn primary big" id="go">저장</button>`, {
+    onMount: (b, close) => $('#go', b).addEventListener('click', busy($('#go', b), async () => {
+      const price = Math.floor(Number($('#price', b).value));
+      const stock = Math.floor(Number($('#stock', b).value));
+      if (!(price > 0) || !(stock >= 0)) throw new Error('가격·재고를 확인하세요');
+      const obj = await signCall('Market', 'updateProduct', [p.id, price, stock, $('#active', b).checked], { gas: 150000 });
+      close(); await submit(obj, `“${p.name}” 수정`);
     })),
   });
 }

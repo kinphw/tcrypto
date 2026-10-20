@@ -37,7 +37,7 @@ const FRIENDLY = [
   [/creator only/i, '만든 사람만 할 수 있어요'], [/sold out|not enough stock/i, '남은 수량이 없어요'], [/name taken/i, '이미 있는 닉네임이에요'],
   [/already joined/i, '이미 가입했어요'], [/not enough coupons/i, '쿠폰이 부족해요'], [/cannot buy (from )?your own/i, '내 것은 살 수 없어요'],
   [/blacklisted/i, '이용이 제한된 계정이에요'], [/paused/i, '지금은 전체 거래가 잠시 멈춰 있어요'], [/nonce mismatch/i, '앞선 요청이 먼저 처리돼야 해요. 잠시 뒤 다시 해 주세요'],
-  [/expired/i, '요청 유효기간이 지났어요'],
+  [/expired/i, '요청 유효기간이 지났어요'], [/shop closed/i, '가게가 문을 닫았어요'], [/not on sale/i, '지금 팔지 않는 상품이에요'],
 ];
 export const friendly = (msg) => FRIENDLY.find(([re]) => re.test(msg))?.[1] || msg;
 

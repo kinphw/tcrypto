@@ -23,19 +23,19 @@
   },
   "inbox": {
     "url": "https://ntfy.sh",
-    "topic": "cheongna-sgw-11155111-b4cf76b5"
+    "topic": "cheongna-sgw-11155111-df2794b6"
   },
   "issuer": "0xDc095654E1bbFef7bCaf774422c565EBb49ce9d1",
   "contracts": {
-    "CoinFactory": "0x5421ced3D90AEf7080D2e7077BC60ccC11E0156b",
-    "Market": "0x4AAdceCf769264f2A6e03d4e2b886FA7f06381d7",
-    "Members": "0x5Fae9b3f263B4E53Fa301eC5595C825518059b55",
-    "Seogilwon": "0xb4cf76b5718fD76946DA44202173044354aA2359",
-    "SeogilwonV1": "0x180A75cDCBb19f9fe1909EaE867db937B96b5a9F",
-    "Forwarder": "0x8cA0dC76dF469d87bc0Fd7D02035D1F47A9F1D89",
-    "Bets": "0x44bF16138E606E4442e234781a9c8Dddd13a60B8",
-    "Coupons": "0xbA3F50bE2f073f277630C6Aa3B1c12fA97D13F9e"
+    "CoinFactory": "0x2A44Cb54ac99Da5EDC388c37D7C861E165432192",
+    "Market": "0x4cA9E7330D436B8c0f433dF85BD6b9C5c04FEf5c",
+    "Members": "0xf18630aba4a42DF70B006a38d28cf9F48a91af16",
+    "Seogilwon": "0xdf2794b6D210e8bAB8E44205CF4B10d037631022",
+    "SeogilwonV1": "0x6445cD48Af2e62d79838E795ca65c7CB67608495",
+    "Forwarder": "0x6E571332F0BA6fd710399D5d9f635DaD9D311084",
+    "Bets": "0xf6610d92CfAe459c5E5A6D936aE9B4EA290ECBB9",
+    "Coupons": "0x4e163c1a1a6121a4a95686b9058B9AFa2C4Ae6dC"
   },
-  "deployBlock": 11946300,
-  "gamesDeployBlock": 11952083
+  "deployBlock": 11952142,
+  "gamesDeployBlock": 11952142
 }

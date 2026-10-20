@@ -3,6 +3,7 @@
 //   node server/setup.mjs password       관리 페이지 비밀번호 정하기 (화면에 안 보이게 입력)
 //   node server/setup.mjs deploy-games   내기판·쿠폰 시장 배포 (운영 지갑이 ETH 로 수수료를 냄, 내기판 관리자 = 운영 지갑)
 //                                        → app-config.json 에 주소 기록
+//   node server/setup.mjs fresh          처음부터 다시: 컨트랙트 8개 새로 배포, 소유·발행 총괄·프록시 관리는 발행자(MetaMask)에게 넘김
 //   node server/setup.mjs local <hardhat 개인키>   로컬 시험망에 전부 새로 배포하고 권한까지 맞춤 (시험용)
 //        이때는 --config web/app-config.local.json --secrets server/.secrets-local --data server/data-local 을 함께 준다
 import fs from 'node:fs';
@@ -61,6 +62,34 @@ if (cmd === 'key') {
   const out = await deployGames(signer, { Seogilwon: cfg.contracts.Seogilwon, Forwarder: cfg.contracts.Forwarder, admin: w.address });
   saveConfig({ contracts: out, gamesDeployBlock: block });
   console.log(`app-config 에 기록했습니다 (${CONFIG_FILE})`);
+} else if (cmd === 'fresh') {
+  // 처음부터 다시: 운영 지갑이 컨트랙트 8개를 새로 배포하고, 권한을 이렇게 나눈다
+  //   운영 지갑  : 발행 담당(한도 1천만) · 정지 · 차단 · 내기판 관리자
+  //   발행자(app-config 의 issuer, MetaMask) : 소유자 · 발행 총괄 · 프록시 관리자  ← 서명 없이 넘겨받음
+  // 예전 컨트랙트는 블록체인에 그대로 남지만 사이트는 새 주소만 본다. 서버 장부(data)는 따로 비운다.
+  const w = ensureKey();
+  const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  const issuer = cfg.issuer;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(issuer || '')) { console.error('app-config 에 issuer(발행자 MetaMask 주소)가 없습니다'); process.exit(1); }
+  const p = new ethers.JsonRpcProvider(cfg.network.rpc, cfg.network.chainId, { staticNetwork: true, cacheTimeout: -1 });
+  const op = w.connect(p);
+  console.log(`운영 지갑 ${w.address} ETH ${ethers.formatEther(await p.getBalance(w.address))} · 발행자 ${issuer}`);
+  const { deployAll, deployGames, art } = await import('../tools-js/deploy-lib.mjs');
+  const deployBlock = await p.getBlockNumber();
+  const C = await deployAll(op);
+  Object.assign(C, await deployGames(op, { ...C, admin: w.address }));
+  const t = new ethers.Contract(C.Seogilwon, art('SeogilwonV1').abi, op);
+  const proxy = new ethers.Contract(C.Seogilwon, art('SgwProxy').abi, op);
+  const step = async (label, txp) => { await (await txp).wait(); console.log(`  ✔ ${label}`); };
+  await step('운영 지갑 발행 한도 1천만', t.configureMinter(w.address, 10_000_000));
+  await step('발행 총괄 → 발행자', t.updateMasterMinter(issuer));
+  await step('프록시 관리자 → 발행자', proxy.changeProxyAdmin(issuer));
+  await step('소유자 → 발행자', t.transferOwnership(issuer));
+  saveConfig({
+    contracts: C, deployBlock, gamesDeployBlock: deployBlock,
+    inbox: { ...(cfg.inbox || {}), topic: `cheongna-sgw-${cfg.network.chainId}-${C.Seogilwon.slice(2, 10).toLowerCase()}` },
+  });
+  console.log(`새 주소를 ${CONFIG_FILE} 에 기록했습니다. 서버 장부를 비우고 다시 켜세요.`);
 } else if (cmd === 'local') {
   const pk = process.argv[3];
   if (!pk) { console.error('사용법: node server/setup.mjs local <hardhat 개인키> --config web/app-config.local.json --secrets server/.secrets-local --data server/data-local'); process.exit(1); }

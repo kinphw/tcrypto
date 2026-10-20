@@ -1,6 +1,7 @@
 // 앱 시작: 설정 → 내 지갑 → (처음이면) 가입 → 탭 화면
 import {
-  app, api, account, loadConfig, loadNames, loadLocalWallet, createLocalWallet, restoreLocalWallet, resumeMetaMask, connectMetaMask, hasMetaMask,
+  app, api, account, loadConfig, loadNames, resumeMetaMask, connectMetaMask, hasMetaMask,
+  createLocalWallet, restoreFromPhrase, sealLegacy, unlock, resumeSession, localState, savedName, rememberName, checkPw, forgetWallet, uploadVault, loginWithPassword,
   signCall, signProof, track, onSettled, html, render, $, $$, won, toast, errMsg, busy, sheet,
 } from './core.js';
 import home from './home.js';
@@ -43,6 +44,7 @@ function drawNav(active) {
 let cleanup = null;
 async function route() {
   cleanup?.(); cleanup = null;
+  if (!account.address) { const st = localState(); return st === 'locked' ? lockScreen() : st === 'legacy' ? legacyScreen() : onboarding(); }
   if (!app.me?.user) return onboarding();
   const [id = '', ...params] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
   const tab = TABS.find((t) => t.id === id) || TABS[0];
@@ -61,12 +63,24 @@ async function route() {
   }
 }
 
-// ───────── 처음 오신 분: 닉네임 정하고 시작 ─────────
+// ───────── 비밀번호 입력칸 ─────────
+const pwFields = (confirm = true) => html`
+  <label class="lbl" for="pw">비밀번호</label><input id="pw" type="password" autocomplete="${confirm ? 'new-password' : 'current-password'}" placeholder="8자 이상">
+  ${confirm ? html`<input id="pw2" type="password" autocomplete="new-password" placeholder="한 번 더"><p class="hint">이 비밀번호로 계정이 잠겨요. 잊으면 12단어 백업으로만 되살릴 수 있어요.</p>` : ''}`;
+function readPw(root, confirm = true) {
+  const pw = $('#pw', root).value;
+  checkPw(pw);
+  if (confirm && pw !== $('#pw2', root).value) throw new Error('두 비밀번호가 달라요');
+  return pw;
+}
+function bare() { document.body.classList.add('bare'); render($('#tabs'), ''); }
+
+// ───────── 처음 오신 분: 닉네임·비밀번호 정하고 시작 ─────────
 function onboarding() {
-  document.body.classList.add('bare');
-  render($('#tabs'), '');
+  bare();
   const r = app.cfg.rewards;
   const by = invite();
+  const mm = account.kind === 'metamask'; // MetaMask 로 들어왔는데 아직 가입 안 한 사람: 닉네임만
   render(view, html`
     <div class="hero">
       <div class="hero-logo">원</div>
@@ -75,16 +89,18 @@ function onboarding() {
       ${by ? html`<div class="invited">🎁 <b>${by}</b> 님이 초대했어요 · 가입하면 둘 다 <b>${won(r.inviteReward)}원</b></div>` : ''}
       <div class="card">
         <label class="lbl" for="nick">닉네임</label>
-        <input id="nick" maxlength="10" placeholder="친구들에게 보일 이름" autocomplete="nickname">
-        <p class="hint" id="nickHint">한글·영문 10자 이내, 나중에 바꿀 수 없어요</p>
+        <input id="nick" maxlength="10" placeholder="친구들에게 보일 이름" autocomplete="username">
+        <p class="hint" id="nickHint">한글·영문 10자 이내, 나중에 바꿀 수 없어요. 로그인할 때도 써요</p>
+        ${mm ? '' : pwFields(true)}
         <button id="start" class="btn primary big">시작하고 ${won(r.signupBonus + (by ? r.inviteReward : 0))}원 받기</button>
       </div>
-      <details class="more"><summary>이미 계정이 있어요</summary>
+      ${mm ? '' : html`<details class="more"><summary>이미 계정이 있어요</summary>
         <div class="card">
+          <button id="login" class="btn primary">닉네임 · 비밀번호로 로그인</button>
           <button id="restore" class="btn">복구 문구(12단어)로 불러오기</button>
           ${hasMetaMask() ? html`<button id="mm" class="btn">MetaMask 로 들어가기</button>` : ''}
         </div>
-      </details>
+      </details>`}
       <p class="fine">가치 없는 가상 화폐입니다. 현금·물품으로 바꾸지 않아요.<br>모든 기록은 이더리움 시험망(${app.cfg.network.name})에 공개됩니다. 실명·연락처는 쓰지 마세요.</p>
     </div>`);
   const nick = $('#nick');
@@ -92,7 +108,7 @@ function onboarding() {
   nick.addEventListener('input', () => {
     clearTimeout(t);
     const v = nick.value.trim();
-    $('#nickHint').textContent = '한글·영문 10자 이내, 나중에 바꿀 수 없어요';
+    $('#nickHint').textContent = '한글·영문 10자 이내, 나중에 바꿀 수 없어요. 로그인할 때도 써요';
     if (!v) return;
     t = setTimeout(async () => {
       const { free } = await api(`name-free?name=${encodeURIComponent(v)}`).catch(() => ({ free: true }));
@@ -103,23 +119,98 @@ function onboarding() {
     const name = nick.value.trim();
     if (!name) throw new Error('닉네임을 정해 주세요');
     if (new TextEncoder().encode(name).length > 30) throw new Error('닉네임이 너무 길어요');
-    if (!account.address) createLocalWallet();
-    await join(name);
+    const pw = mm ? null : readPw(view, true);
+    const { free } = await api(`name-free?name=${encodeURIComponent(name)}`);
+    if (!free) throw new Error('이미 있는 닉네임이에요');
+    if (!mm) await createLocalWallet(pw);
+    await join(name, pw);
   }));
-  $('#restore').addEventListener('click', () => {
-    const s = sheet(html`<h2>복구 문구로 불러오기</h2><p class="muted">다른 기기에서 '나 → 백업'에 있던 12단어를 띄어쓰기로 넣어 주세요.</p>
-      <textarea id="phrase" rows="3" placeholder="단어 12개"></textarea><button id="go" class="btn primary big">불러오기</button>`, {
-      onMount: (b, close) => $('#go', b).addEventListener('click', busy($('#go', b), async () => { restoreLocalWallet($('#phrase', b).value); close(); await afterWallet(); })),
-    });
-    return s;
-  });
+  $('#login')?.addEventListener('click', loginSheet);
+  $('#restore')?.addEventListener('click', restoreSheet);
   $('#mm')?.addEventListener('click', busy($('#mm'), async () => { await connectMetaMask(); await afterWallet(); }));
 }
 
-async function join(name) {
+function loginSheet() {
+  sheet(html`<h2>로그인</h2><p class="muted">가입할 때 정한 닉네임과 비밀번호를 넣어 주세요.</p>
+    <label class="lbl" for="lnick">닉네임</label><input id="lnick" autocomplete="username" value="${savedName() || ''}">${pwFields(false)}
+    <button id="go" class="btn primary big">로그인</button>
+    <p class="hint">비밀번호를 잊었다면 12단어 백업으로 불러온 뒤 새 비밀번호를 정하세요.</p>`, {
+    onMount: (b, close) => $('#go', b).addEventListener('click', busy($('#go', b), async () => {
+      const name = $('#lnick', b).value.trim();
+      if (!name) throw new Error('닉네임을 넣어 주세요');
+      await loginWithPassword(name, readPw(b, false));
+      close();
+      await afterWallet();
+    })),
+  });
+}
+
+function restoreSheet() {
+  sheet(html`<h2>복구 문구로 불러오기</h2><p class="muted">“나 → 백업 문구”에 있던 12단어를 띄어쓰기로 넣고, 쓸 비밀번호를 새로 정해 주세요.</p>
+    <textarea id="phrase" rows="3" placeholder="단어 12개" autocomplete="off"></textarea>${pwFields(true)}
+    <button id="go" class="btn primary big">불러오기</button>`, {
+    onMount: (b, close) => $('#go', b).addEventListener('click', busy($('#go', b), async () => {
+      const pw = readPw(b, true);
+      await restoreFromPhrase($('#phrase', b).value, pw);
+      close();
+      await afterWallet(pw);
+    })),
+  });
+}
+
+// ───────── 다시 오신 분: 비밀번호로 잠금 풀기 ─────────
+function lockScreen() {
+  bare();
+  const nm = savedName();
+  render(view, html`
+    <div class="hero">
+      <div class="hero-logo">원</div>
+      <h1>${nm ? `${nm} 님` : '청라더헤븐'}</h1>
+      <p class="lead">비밀번호로 잠금을 풀어 주세요.</p>
+      <form class="card" id="unlockForm">
+        <input type="text" autocomplete="username" value="${nm || ''}" hidden>
+        ${pwFields(false)}
+        <button class="btn primary big" id="go">잠금 풀기</button>
+      </form>
+      <details class="more"><summary>비밀번호를 잊었거나 다른 계정이에요</summary>
+        <div class="card">
+          <button id="restore" class="btn">복구 문구(12단어)로 새 비밀번호 정하기</button>
+          <button id="login" class="btn">다른 닉네임으로 로그인</button>
+          <button id="forget" class="btn ghost danger">이 기기에서 계정 지우기</button>
+        </div>
+      </details>
+    </div>`);
+  $('#pw').focus();
+  $('#unlockForm').addEventListener('submit', (e) => e.preventDefault());
+  $('#go').addEventListener('click', busy($('#go'), async () => { await unlock(readPw(view, false)); await afterWallet(); }));
+  $('#restore').addEventListener('click', restoreSheet);
+  $('#login').addEventListener('click', loginSheet);
+  $('#forget').addEventListener('click', () => {
+    if (!confirm('이 기기에 저장된 계정을 지워요. 닉네임·비밀번호 로그인이나 12단어로 다시 불러올 수 있어요. 지울까요?')) return;
+    forgetWallet(); onboarding();
+  });
+}
+
+// ───────── 예전에 비밀번호 없이 만든 계정: 비밀번호 씌우기 ─────────
+function legacyScreen() {
+  bare();
+  render(view, html`
+    <div class="hero">
+      <div class="hero-logo">원</div>
+      <h1>비밀번호를 정해 주세요</h1>
+      <p class="lead">이제 계정을 비밀번호로 잠가요. 이 기기의 열쇠를 이 비밀번호로 암호화하고, 다른 기기에서는 닉네임 + 비밀번호로 로그인할 수 있게 돼요.</p>
+      <form class="card" id="f">${pwFields(true)}<button class="btn primary big" id="go">저장</button></form>
+    </div>`);
+  $('#f').addEventListener('submit', (e) => e.preventDefault());
+  $('#go').addEventListener('click', busy($('#go'), async () => { const pw = readPw(view, true); await sealLegacy(pw); await afterWallet(pw); }));
+}
+
+async function join(name, pw) {
   const obj = await signCall('Members', 'join', [name], { gas: 300000, label: '가입' });
   const r = await api('join', { obj, invite: invite() });
   try { localStorage.removeItem('tc.invite'); } catch {}
+  rememberName(name);
+  if (pw) await uploadVault(name, pw).catch((e) => toast(`로그인 정보 저장 실패: ${errMsg(e)} — 나 → 비밀번호 바꾸기로 다시 저장하세요`, { kind: 'bad' }));
   await refreshMe();
   welcome(r.paid);
   if (r.job) track(r.job, '가입 기록');
@@ -135,13 +226,18 @@ function welcome(paid = []) {
     <ul class="paid">${paid.map((p) => html`<li>${{ signup: '가입 축하금', invite: '초대 보상' }[p.kind] || p.kind} <b>+${won(p.amount)}원</b></li>`)}</ul></div>`);
 }
 
-/** 지갑이 정해진 뒤: 서버에 등록돼 있는지 보고, 명부에는 있는데 서버에 없으면 본인 확인 서명으로 등록 */
-async function afterWallet() {
+/** 지갑이 정해진 뒤: 서버에 등록돼 있는지 보고, 명부에는 있는데 서버에 없으면 본인 확인 서명으로 등록.
+ *  pw 가 있으면(새 비밀번호를 막 정함) 서버 보관함도 새 비밀번호로 맞춘다 */
+async function afterWallet(pw = null) {
   await refreshMe();
   if (!app.me.user && app.names[account.address.toLowerCase()]) {
     const r = await api('join', { obj: await signProof(), invite: invite() });
     await refreshMe();
     welcome(r.paid);
+  }
+  if (app.me.user) {
+    rememberName(app.me.user.name);
+    if (pw && account.kind === 'local') await uploadVault(app.me.user.name, pw).catch(() => {});
   }
   route();
 }
@@ -150,8 +246,11 @@ async function boot() {
   try {
     await loadConfig();
     await loadNames();
-    (await resumeMetaMask().catch(() => null)) || loadLocalWallet();
-    if (account.address) await afterWallet(); else route();
+    if ((await resumeMetaMask().catch(() => null)) || resumeSession()) return afterWallet();
+    const st = localState();
+    if (st === 'locked') return lockScreen();
+    if (st === 'legacy') return legacyScreen();
+    route();
   } catch (e) {
     render(view, html`<div class="card"><h2>연결하지 못했어요</h2><p class="muted">${errMsg(e)}</p><button class="btn" onclick="location.reload()">다시 시도</button></div>`);
   }

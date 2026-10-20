@@ -23,38 +23,87 @@ export const nameOf = (a) => (a ? app.names[a.toLowerCase()] || null : null);
 export const addrOfName = (n) => Object.entries(app.names).find(([, v]) => v === n)?.[0] || null;
 
 // ───────── 내 지갑 ─────────
-// 기본: 이 브라우저 안에 만든 지갑 (복구 문구 12단어를 localStorage 에 보관). 선택: MetaMask.
-const KEY = 'tc.wallet';
+// 기본: 이 브라우저 안에 만든 지갑. 복구 문구(12단어)를 '내 비밀번호'로 암호화해 보관한다 (MetaMask 와 같은 방식).
+// 사이트를 열면 비밀번호로 잠금을 풀고, 탭을 닫으면 다시 잠긴다.
+// 같은 암호문을 서버에도 맡겨 두면 다른 기기에서 닉네임 + 비밀번호로 불러올 수 있다 — 서버는 비밀번호도 열쇠도 모른다.
+// 선택: MetaMask (비밀번호는 MetaMask 가 관리).
+const VAULT = 'tc.vault', NAME = 'tc.name', SESS = 'tc.sess', LEGACY = 'tc.wallet';
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
 };
+const tab = {
+  get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} },
+};
 export const account = { address: null, signer: null, kind: null };
 
-export function loadLocalWallet() {
-  const phrase = store.get(KEY);
-  if (!phrase) return null;
-  try {
-    const w = E().Wallet.fromPhrase(phrase);
-    Object.assign(account, { address: w.address, signer: w, kind: 'local' });
-    return account;
-  } catch { return null; }
-}
-export function createLocalWallet() {
-  const w = E().Wallet.createRandom();
-  store.set(KEY, w.mnemonic.phrase);
+const useWallet = (w) => {
   Object.assign(account, { address: w.address, signer: w, kind: 'local' });
+  tab.set(SESS, w.mnemonic.phrase); // 이 탭이 열려 있는 동안만 (새로고침해도 다시 묻지 않게)
   return account;
+};
+const wrongPw = () => { throw new Error('비밀번호가 맞지 않아요'); };
+export const checkPw = (pw) => { if (String(pw || '').length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요'); };
+const normPhrase = (p) => p.trim().toLowerCase().split(/\s+/).join(' ');
+
+/** 이 기기의 지갑 상태: locked(암호문 있음) · legacy(예전처럼 암호 없이 저장됨) · null(없음) */
+export const localState = () => (store.get(VAULT) ? 'locked' : store.get(LEGACY) ? 'legacy' : null);
+export const savedName = () => store.get(NAME);
+export const rememberName = (n) => store.set(NAME, n);
+
+/** 이 탭에서 이미 잠금을 풀었으면 그대로 */
+export function resumeSession() {
+  const ph = tab.get(SESS);
+  if (!ph || !store.get(VAULT)) return null;
+  try { return useWallet(E().Wallet.fromPhrase(ph)); } catch { return null; }
 }
-export function restoreLocalWallet(phrase) {
-  const w = E().Wallet.fromPhrase(phrase.trim().toLowerCase().split(/\s+/).join(' '));
-  store.set(KEY, w.mnemonic.phrase);
+export async function unlock(pw) {
+  const w = await E().Wallet.fromEncryptedJson(store.get(VAULT), pw).catch(wrongPw);
+  return useWallet(w);
+}
+async function seal(w, pw) {
+  checkPw(pw);
+  const json = await E().encryptKeystoreJson({ address: w.address, privateKey: w.privateKey, mnemonic: w.mnemonic }, pw, { scrypt: { N: 1 << 15 } });
+  store.set(VAULT, json);
+  store.set(LEGACY, null);
   store.set('tc.mm', null);
-  Object.assign(account, { address: w.address, signer: w, kind: 'local' });
-  return account;
+  return json;
 }
-export const backupPhrase = () => store.get(KEY);
-export function forgetWallet() { store.set(KEY, null); store.set('tc.mm', null); Object.assign(account, { address: null, signer: null, kind: null }); }
+export async function createLocalWallet(pw) { const w = E().Wallet.createRandom(); await seal(w, pw); return useWallet(w); }
+export async function restoreFromPhrase(phrase, pw) { const w = E().Wallet.fromPhrase(normPhrase(phrase)); await seal(w, pw); return useWallet(w); }
+/** 예전(비밀번호 없던 때)에 만든 지갑에 비밀번호를 씌운다 */
+export async function sealLegacy(pw) { const w = E().Wallet.fromPhrase(store.get(LEGACY)); await seal(w, pw); return useWallet(w); }
+export async function revealPhrase(pw) { return (await E().Wallet.fromEncryptedJson(store.get(VAULT), pw).catch(wrongPw)).mnemonic.phrase; }
+export function lock() { tab.set(SESS, null); Object.assign(account, { address: null, signer: null, kind: null }); }
+export function forgetWallet() {
+  [VAULT, LEGACY, NAME, 'tc.mm'].forEach((k) => store.set(k, null));
+  tab.set(SESS, null);
+  Object.assign(account, { address: null, signer: null, kind: null });
+}
+
+// ── 서버 보관함 (다른 기기에서 닉네임 + 비밀번호 로그인) ──
+const authKey = (name, pw) => E().hexlify(E().scryptSync(E().toUtf8Bytes(pw), E().toUtf8Bytes(`tcrypto-login:${name}`), 1 << 14, 8, 1, 32));
+const vaultMessage = (addr, vault, at) => `청라더헤븐 계정 보관\n주소: ${addr}\n암호문 지문: ${E().keccak256(E().toUtf8Bytes(vault))}\n시각: ${at}`;
+export async function uploadVault(name, pw) {
+  const vault = store.get(VAULT);
+  const at = Math.floor(Date.now() / 1000);
+  const sig = await account.signer.signMessage(vaultMessage(account.address, vault, at));
+  store.set(NAME, name);
+  return api('vault/save', { addr: account.address, name, auth: authKey(name, pw), vault, at, sig });
+}
+export async function loginWithPassword(name, pw) {
+  const { vault } = await api('vault/login', { name, auth: authKey(name, pw) });
+  const w = await E().Wallet.fromEncryptedJson(vault, pw).catch(wrongPw);
+  store.set(VAULT, vault); store.set(NAME, name); store.set(LEGACY, null); store.set('tc.mm', null);
+  return useWallet(w);
+}
+export async function changePassword(name, oldPw, newPw) {
+  const w = await E().Wallet.fromEncryptedJson(store.get(VAULT), oldPw).catch(wrongPw);
+  await seal(w, newPw);
+  useWallet(w);
+  if (name) await uploadVault(name, newPw);
+}
 
 export const hasMetaMask = () => !!window.ethereum;
 export async function connectMetaMask() {

@@ -1,5 +1,5 @@
 // 나: 초대 · 순위 · 통장 내역 · 내 활동 · 백업 · 실험실
-import { app, api, account, html, render, $, $$, won, who, ago, sheet, toast, busy, backupPhrase, forgetWallet, connectMetaMask, hasMetaMask, short } from './core.js';
+import { app, api, account, html, render, $, $$, won, who, ago, sheet, toast, busy, revealPhrase, changePassword, lock, forgetWallet, connectMetaMask, hasMetaMask, short } from './core.js';
 import { feedItem } from './home.js';
 
 export const inviteLink = (name) => `${location.origin}/?i=${encodeURIComponent(name)}`;
@@ -40,10 +40,13 @@ export default async function me(page) {
     <section class="card"><h2>내 활동</h2>${mine.length ? html`<ul class="feed">${mine.map(feedItem)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
     <section class="card"><h2>계정</h2>
-      ${account.kind === 'local' ? html`<button class="btn" id="backup">백업 문구 보기 (다른 기기에서 쓰기)</button>` : ''}
+      ${account.kind === 'local' ? html`<p class="muted small">${m.vault ? '✔ 다른 기기에서 닉네임 + 비밀번호로 로그인할 수 있어요' : '⚠ 아직 서버에 로그인 정보가 없어요. 비밀번호 바꾸기를 한 번 하면 저장돼요'}</p>
+        <button class="btn" id="pwc">비밀번호 바꾸기</button>
+        <button class="btn" id="backup">백업 문구 보기 (비밀번호를 잊었을 때 대비)</button>` : ''}
       ${account.kind === 'local' && hasMetaMask() ? html`<button class="btn" id="mm">MetaMask 로 바꾸기</button>` : ''}
       <a class="btn" href="/lab/" target="_blank">실험실 · 블록체인 들여다보기</a>
       ${account.address ? html`<a class="btn ghost" href="${app.cfg.network.explorer ? `${app.cfg.network.explorer}/address/${account.address}` : '#'}" target="_blank" rel="noopener">이더스캔에서 내 기록 보기</a>` : ''}
+      ${account.kind === 'local' ? html`<button class="btn ghost" id="lock">잠그기</button>` : ''}
       <button class="btn ghost danger" id="out">이 기기에서 로그아웃</button>
     </section>
     <p class="fine">청라더헤븐의 원화와 서길원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
@@ -54,16 +57,33 @@ export default async function me(page) {
     $$('[data-rv]', page).forEach((v) => { v.hidden = v.dataset.rv !== b.dataset.r; });
   }));
   $('#backup', page)?.addEventListener('click', () => sheet(html`<h2>백업 문구</h2>
-    <p class="muted">이 12단어가 곧 내 계정이에요. <b>누구에게도 보여 주지 마세요.</b> 다른 기기에서 “이미 계정이 있어요 → 복구 문구”에 넣으면 같은 계정으로 들어가요.</p>
-    <div class="phrase">${backupPhrase().split(' ').map((w, i) => html`<span><small>${i + 1}</small>${w}</span>`)}</div>
-    <button class="btn" id="cp">복사</button>`, { onMount: (b) => $('#cp', b).addEventListener('click', () => navigator.clipboard?.writeText(backupPhrase()).then(() => toast('복사했어요. 안전한 곳에 붙여 두세요'))) }));
+    <p class="muted">이 12단어가 곧 내 계정이에요. 비밀번호를 잊어도 이것만 있으면 되살릴 수 있어요. <b>누구에게도 보여 주지 마세요.</b></p>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호 확인"><button class="btn primary big" id="show">보기</button><div id="out"></div>`, {
+    onMount: (b) => $('#show', b).addEventListener('click', busy($('#show', b), async () => {
+      const phrase = await revealPhrase($('#pw', b).value);
+      render($('#out', b), html`<div class="phrase">${phrase.split(' ').map((w, i) => html`<span><small>${i + 1}</small>${w}</span>`)}</div><button class="btn" id="cp">복사</button>`);
+      $('#cp', b).addEventListener('click', () => navigator.clipboard?.writeText(phrase).then(() => toast('복사했어요. 안전한 곳에 붙여 두세요')));
+    })),
+  }));
+  $('#pwc', page)?.addEventListener('click', () => sheet(html`<h2>비밀번호 바꾸기</h2>
+    <input id="old" type="password" autocomplete="current-password" placeholder="지금 비밀번호">
+    <input id="pw" type="password" autocomplete="new-password" placeholder="새 비밀번호 (8자 이상)" style="margin-top:8px">
+    <input id="pw2" type="password" autocomplete="new-password" placeholder="새 비밀번호 한 번 더" style="margin-top:8px">
+    <button class="btn primary big" id="go">바꾸기</button>`, {
+    onMount: (b, close) => $('#go', b).addEventListener('click', busy($('#go', b), async () => {
+      if ($('#pw', b).value !== $('#pw2', b).value) throw new Error('새 비밀번호 두 개가 달라요');
+      await changePassword(m.user.name, $('#old', b).value, $('#pw', b).value);
+      close(); toast('비밀번호를 바꿨어요. 다른 기기에서도 새 비밀번호로 로그인해요', { kind: 'ok' });
+    })),
+  }));
+  $('#lock', page)?.addEventListener('click', () => { lock(); location.href = '/'; });
   $('#mm', page)?.addEventListener('click', busy($('#mm', page), async () => {
     if (!confirm('MetaMask 지갑은 다른 계정이에요. 지금 계정의 돈은 그대로 이 브라우저 지갑에 남아요. 바꿀까요?')) return;
     await connectMetaMask(); location.reload();
   }));
   $('#out', page).addEventListener('click', () => {
     const local = account.kind === 'local';
-    if (!confirm(local ? '백업 문구를 적어 두지 않았다면 이 계정을 다시 찾을 수 없어요. 정말 로그아웃할까요?' : '로그아웃할까요?')) return;
+    if (!confirm(local ? '이 기기에서 계정을 지워요. 닉네임 + 비밀번호로 다시 로그인할 수 있어요 (비밀번호를 잊었다면 백업 문구가 있어야 해요). 로그아웃할까요?' : '로그아웃할까요?')) return;
     forgetWallet(); location.href = '/';
   });
 }

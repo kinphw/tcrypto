@@ -17,6 +17,7 @@ import { acceptRelay, acceptJoin, friendly } from './lib/intake.mjs';
 import { settleTick } from './lib/settle.mjs';
 import { names, feed, ranking, allBets, betView, allCoupons, couponView, allProducts } from './lib/views.mjs';
 import * as admin from './lib/admin.mjs';
+import { saveVault, loginVault, hasVault } from './lib/vault.mjs';
 
 const ADMIN_DIR = path.join(ROOT, 'server', 'admin');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8' };
@@ -89,7 +90,7 @@ async function me(addr) {
   return {
     addr: a, user: u ? { name: u.name, joinedAt: u.joined_at, invitedBy: u.invited_by } : null,
     sgw: sgw == null ? null : Number(sgw), bank: balance(a), history: history(a, 30), checkin: checkinState(a),
-    invited: db.prepare('SELECT COUNT(*) n FROM users WHERE invited_by = ?').get(a).n, jobs,
+    invited: db.prepare('SELECT COUNT(*) n FROM users WHERE invited_by = ?').get(a).n, jobs, vault: hasVault(a),
   };
 }
 
@@ -153,6 +154,8 @@ async function api(req, res, url, ip) {
     const body = await readBody(req);
     if (p === '/api/relay') { const r = await acceptRelay(body.obj); return send(res, 200, { job: jobView(r.job), duplicate: r.duplicate }); }
     if (p === '/api/join') { const r = await acceptJoin(body.obj, body.invite, ip); return send(res, 200, { name: r.user?.name, paid: r.paid, job: jobView(r.job) }); }
+    if (p === '/api/vault/save') return send(res, 200, saveVault(body));
+    if (p === '/api/vault/login') return send(res, 200, loginVault(body, ip));
     if (p === '/api/checkin') {
       if (!isAddr(body.addr)) throw new Error('주소가 없습니다');
       return send(res, 200, checkin(body.addr));

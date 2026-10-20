@@ -33,7 +33,7 @@ async function precheck(run, addr) {
 }
 
 const FRIENDLY = [
-  [/exceeds balance|transfer amount exceeds/i, '서길원 잔액이 부족해요'], [/betting closed/i, '이미 마감된 내기예요'], [/not closed yet/i, '아직 마감 전이에요'],
+  [/exceeds balance|transfer amount exceeds/i, '박형원 잔액이 부족해요'], [/betting closed/i, '이미 마감된 내기예요'], [/not closed yet/i, '아직 마감 전이에요'],
   [/creator only/i, '만든 사람만 할 수 있어요'], [/sold out|not enough stock/i, '남은 수량이 없어요'], [/name taken/i, '이미 있는 닉네임이에요'],
   [/already joined/i, '이미 가입했어요'], [/not enough coupons/i, '쿠폰이 부족해요'], [/cannot buy (from )?your own/i, '내 것은 살 수 없어요'],
   [/blacklisted/i, '이용이 제한된 계정이에요'], [/paused/i, '지금은 전체 거래가 잠시 멈춰 있어요'], [/nonce mismatch/i, '앞선 요청이 먼저 처리돼야 해요. 잠시 뒤 다시 해 주세요'],
@@ -88,7 +88,7 @@ export async function acceptRelay(obj) {
   if (obj.k === 'auth') {
     if (addrEq(a.to, operator.address)) throw new Error('발행사로 보내는 것은 환매 화면에서 해 주세요');
     if (Object.values(cfg.contracts).some((c) => addrEq(c, a.to))) throw new Error('컨트랙트 주소로는 보낼 수 없어요');
-    job = { kind: 'auth', label: `${a.value.toLocaleString()} sgw 보내기`, target: 'Seogilwon', method: 'transferWithAuthorization', args: [a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s] };
+    job = { kind: 'auth', label: `${a.value.toLocaleString()} phw 보내기`, target: 'Seogilwon', method: 'transferWithAuthorization', args: [a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s] };
   } else if (obj.k === 'buy') {
     job = { kind: 'buy', label: obj.label || '상품 구매', target: 'Market', method: 'buyWithAuthorization', args: [BigInt(obj.productId), BigInt(obj.quantity), String(obj.note || '').slice(0, 200), a.from, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s] };
   } else if (obj.k === 'bet') {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title SeogilwonV1 - 원화 스테이블코인 '서길원(sgw)' 구현 1판
+/// @title SeogilwonV1 - 원화 스테이블코인 '박형원(phw)' 구현 1판
 /// @notice 서클(Circle)의 USDC(FiatToken)와 테더의 USDT 구조를 단순화해 재현했다.
 ///         이 컨트랙트는 '구현(implementation)'이고, 이용자는 프록시(SgwProxy) 주소를 쓴다.
 ///         잔액 등 모든 데이터는 프록시의 저장공간에 있고, 프록시가 이 코드를 빌려 실행(delegatecall)한다.
@@ -74,13 +74,13 @@ contract SeogilwonV1 {
     event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
     event ReserveAttested(uint256 indexed index, uint256 reserve, uint256 supplyAtTime, string evidence);
 
-    modifier onlyOwner() { require(msg.sender == owner, "sgw: caller is not the owner"); _; }
-    modifier onlyMasterMinter() { require(msg.sender == masterMinter, "sgw: caller is not the masterMinter"); _; }
-    modifier onlyMinters() { require(isMinter[msg.sender], "sgw: caller is not a minter"); _; }
-    modifier onlyPauser() { require(msg.sender == pauser, "sgw: caller is not the pauser"); _; }
-    modifier onlyBlacklister() { require(msg.sender == blacklister, "sgw: caller is not the blacklister"); _; }
-    modifier whenNotPaused() { require(!paused, "sgw: paused"); _; }
-    modifier notBlacklisted(address a) { require(!isBlacklisted[a], "sgw: account is blacklisted"); _; }
+    modifier onlyOwner() { require(msg.sender == owner, "phw: caller is not the owner"); _; }
+    modifier onlyMasterMinter() { require(msg.sender == masterMinter, "phw: caller is not the masterMinter"); _; }
+    modifier onlyMinters() { require(isMinter[msg.sender], "phw: caller is not a minter"); _; }
+    modifier onlyPauser() { require(msg.sender == pauser, "phw: caller is not the pauser"); _; }
+    modifier onlyBlacklister() { require(msg.sender == blacklister, "phw: caller is not the blacklister"); _; }
+    modifier whenNotPaused() { require(!paused, "phw: paused"); _; }
+    modifier notBlacklisted(address a) { require(!isBlacklisted[a], "phw: account is blacklisted"); _; }
 
     /// @dev 구현 컨트랙트 자체는 직접 쓰지 못하게 잠근다. 실제 데이터는 프록시 쪽에서 initialize 된다.
     constructor() {
@@ -88,7 +88,7 @@ contract SeogilwonV1 {
     }
 
     function initialize(string calldata name_, string calldata symbol_, string calldata currency_, uint8 decimals_, address owner_) external {
-        require(!_initialized, "sgw: already initialized");
+        require(!_initialized, "phw: already initialized");
         _initialized = true;
         name = name_;
         symbol = symbol_;
@@ -124,7 +124,7 @@ contract SeogilwonV1 {
     function transferWithMemo(address to, uint256 value, string calldata memo)
         external whenNotPaused notBlacklisted(msg.sender) notBlacklisted(to) returns (bool)
     {
-        require(bytes(memo).length <= 200, "sgw: memo too long");
+        require(bytes(memo).length <= 200, "phw: memo too long");
         _transfer(msg.sender, to, value);
         emit Memo(msg.sender, to, value, memo);
         return true;
@@ -139,15 +139,15 @@ contract SeogilwonV1 {
         external whenNotPaused notBlacklisted(msg.sender) notBlacklisted(from) notBlacklisted(to) returns (bool)
     {
         uint256 a = allowance[from][msg.sender];
-        require(a >= value, "sgw: transfer amount exceeds allowance");
+        require(a >= value, "phw: transfer amount exceeds allowance");
         if (a != type(uint256).max) allowance[from][msg.sender] = a - value;
         _transfer(from, to, value);
         return true;
     }
 
     function _transfer(address from, address to, uint256 value) internal {
-        require(to != address(0), "sgw: transfer to the zero address");
-        require(balanceOf[from] >= value, "sgw: transfer amount exceeds balance");
+        require(to != address(0), "phw: transfer to the zero address");
+        require(balanceOf[from] >= value, "phw: transfer amount exceeds balance");
         balanceOf[from] -= value;
         balanceOf[to] += value;
         emit Transfer(from, to, value);
@@ -163,10 +163,10 @@ contract SeogilwonV1 {
     function mint(address to, uint256 amount, string calldata memo)
         external whenNotPaused onlyMinters notBlacklisted(msg.sender) notBlacklisted(to) returns (bool)
     {
-        require(to != address(0), "sgw: mint to the zero address");
-        require(amount > 0, "sgw: mint amount not greater than 0");
+        require(to != address(0), "phw: mint to the zero address");
+        require(amount > 0, "phw: mint amount not greater than 0");
         uint256 allowed = minterAllowance[msg.sender];
-        require(amount <= allowed, "sgw: mint amount exceeds minterAllowance");
+        require(amount <= allowed, "phw: mint amount exceeds minterAllowance");
         minterAllowance[msg.sender] = allowed - amount;
         totalSupply += amount;
         balanceOf[to] += amount;
@@ -177,8 +177,8 @@ contract SeogilwonV1 {
 
     /// @notice 상환 처리: 이용자가 발행 담당자에게 보낸 코인을 발행 담당자가 자기 잔액에서 소각한다.
     function burn(uint256 amount, string calldata memo) external whenNotPaused onlyMinters notBlacklisted(msg.sender) {
-        require(amount > 0, "sgw: burn amount not greater than 0");
-        require(balanceOf[msg.sender] >= amount, "sgw: burn amount exceeds balance");
+        require(amount > 0, "phw: burn amount not greater than 0");
+        require(balanceOf[msg.sender] >= amount, "phw: burn amount exceeds balance");
         balanceOf[msg.sender] -= amount;
         totalSupply -= amount;
         emit Burn(msg.sender, amount, memo);
@@ -212,7 +212,7 @@ contract SeogilwonV1 {
 
     /// @notice (USDT 방식) 블랙리스트에 오른 계좌의 잔액을 소각한다. 법원 명령·범죄 수익 등.
     function destroyBlackFunds(address account, string calldata reason) external onlyBlacklister {
-        require(isBlacklisted[account], "sgw: account is not blacklisted");
+        require(isBlacklisted[account], "phw: account is not blacklisted");
         uint256 amount = balanceOf[account];
         balanceOf[account] = 0;
         totalSupply -= amount;
@@ -242,7 +242,7 @@ contract SeogilwonV1 {
 
     // ───── 역할 관리 ─────
     function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "sgw: new owner is the zero address");
+        require(newOwner != address(0), "phw: new owner is the zero address");
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
@@ -255,9 +255,9 @@ contract SeogilwonV1 {
     function permit(address owner_, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
         external whenNotPaused notBlacklisted(owner_) notBlacklisted(spender)
     {
-        require(deadline >= block.timestamp, "sgw: permit is expired");
+        require(deadline >= block.timestamp, "phw: permit is expired");
         bytes32 digest = _digest(keccak256(abi.encode(PERMIT_TYPEHASH, owner_, spender, value, nonces[owner_]++, deadline)));
-        require(_recover(digest, v, r, s) == owner_, "sgw: invalid signature");
+        require(_recover(digest, v, r, s) == owner_, "phw: invalid signature");
         _approve(owner_, spender, value);
     }
 
@@ -273,15 +273,15 @@ contract SeogilwonV1 {
     function receiveWithAuthorization(
         address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s
     ) external whenNotPaused notBlacklisted(from) notBlacklisted(to) {
-        require(to == msg.sender, "sgw: caller must be the payee");
+        require(to == msg.sender, "phw: caller must be the payee");
         _useAuthorization(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce, v, r, s);
         _transfer(from, to, value);
     }
 
     function cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external whenNotPaused {
-        require(!authorizationState[authorizer][nonce], "sgw: authorization is used or canceled");
+        require(!authorizationState[authorizer][nonce], "phw: authorization is used or canceled");
         bytes32 digest = _digest(keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, authorizer, nonce)));
-        require(_recover(digest, v, r, s) == authorizer, "sgw: invalid signature");
+        require(_recover(digest, v, r, s) == authorizer, "phw: invalid signature");
         authorizationState[authorizer][nonce] = true;
         emit AuthorizationCanceled(authorizer, nonce);
     }
@@ -289,11 +289,11 @@ contract SeogilwonV1 {
     function _useAuthorization(
         bytes32 typehash, address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s
     ) private {
-        require(block.timestamp > validAfter, "sgw: authorization is not yet valid");
-        require(block.timestamp < validBefore, "sgw: authorization is expired");
-        require(!authorizationState[from][nonce], "sgw: authorization is used or canceled");
+        require(block.timestamp > validAfter, "phw: authorization is not yet valid");
+        require(block.timestamp < validBefore, "phw: authorization is expired");
+        require(!authorizationState[from][nonce], "phw: authorization is used or canceled");
         bytes32 digest = _digest(keccak256(abi.encode(typehash, from, to, value, validAfter, validBefore, nonce)));
-        require(_recover(digest, v, r, s) == from, "sgw: invalid signature");
+        require(_recover(digest, v, r, s) == from, "phw: invalid signature");
         authorizationState[from][nonce] = true;
         emit AuthorizationUsed(from, nonce);
     }
@@ -303,13 +303,13 @@ contract SeogilwonV1 {
     }
 
     function _recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) private pure returns (address signer) {
-        require(uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0, "sgw: invalid signature 's' value");
+        require(uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0, "phw: invalid signature 's' value");
         signer = ecrecover(digest, v, r, s);
-        require(signer != address(0), "sgw: invalid signature");
+        require(signer != address(0), "phw: invalid signature");
     }
 }
 
-/// @title SeogilwonV2 - 서길원 구현 2판 (업그레이드 체험용)
+/// @title SeogilwonV2 - 박형원 구현 2판 (업그레이드 체험용)
 /// @notice 업그레이드하면 같은 주소·같은 잔액 위에서 아래 '새 권한'이 생긴다.
 ///         감독 관점: 이용자는 아무것도 바꾸지 않았는데, 발행사가 규칙을 바꿀 수 있다는 것이 업그레이드 가능 토큰의 핵심 위험이다.
 contract SeogilwonV2 is SeogilwonV1 {
@@ -321,7 +321,7 @@ contract SeogilwonV2 is SeogilwonV1 {
 
     /// @notice 블랙리스트 절차 없이, 소유자가 아무 계좌에서나 코인을 바로 회수해 자기 계좌로 옮긴다.
     function clawback(address from, uint256 amount, string calldata reason) external onlyOwner {
-        require(balanceOf[from] >= amount, "sgw: clawback amount exceeds balance");
+        require(balanceOf[from] >= amount, "phw: clawback amount exceeds balance");
         balanceOf[from] -= amount;
         balanceOf[owner] += amount;
         emit Transfer(from, owner, amount);

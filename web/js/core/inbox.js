@@ -11,7 +11,7 @@ export const APP = 'cheongna-sgw';
 const CHUNK = 3000; // ntfy 메시지 한 통 한도(4096바이트)를 넘지 않도록 나눠 보냄
 export const KEEP_HOURS = 12; // ntfy.sh 무료 보관 기간
 
-/** 설정의 우편함 주소 (없으면 체인·서길원 주소로 만든 이름) */
+/** 설정의 우편함 주소 (없으면 체인·박형원 주소로 만든 이름) */
 export function inboxInfo() {
   const c = chain.cfg;
   const url = (c.inbox?.url || 'https://ntfy.sh').replace(/\/$/, '');

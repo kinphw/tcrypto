@@ -6,12 +6,12 @@ import { bindDetails, detailSheet, xAddr } from './core.js';
 export const inviteLink = (name) => `${location.origin}/?i=${encodeURIComponent(name)}`;
 export function shareInvite(name) {
   const url = inviteLink(name);
-  const text = `청라더헤븐에서 같이 놀자! 가입하면 둘 다 ${won(app.cfg.rewards.inviteReward)}원 (가상 화폐)`;
-  if (navigator.share) return navigator.share({ title: '청라더헤븐 초대', text, url }).catch(() => {});
+  const text = `수원더헤븐에서 같이 놀자! 가입하면 둘 다 ${won(app.cfg.rewards.inviteReward)}원 (가상 화폐)`;
+  if (navigator.share) return navigator.share({ title: '수원더헤븐 초대', text, url }).catch(() => {});
   navigator.clipboard?.writeText(`${text}\n${url}`).then(() => toast('초대 링크를 복사했어요. 카톡에 붙여넣어 보내세요'));
 }
 
-const BANK_KIND = { signup: '가입 축하금', checkin: '출석', streak: '연속 출석 보너스', invite: '초대받은 보상', inviter: '초대 보상', grant: '이벤트', charge: '충전 (→ 서길원)', 'charge-refund': '충전 되돌림', redeem: '환매 (서길원 →)' };
+const BANK_KIND = { signup: '가입 축하금', checkin: '출석', streak: '연속 출석 보너스', invite: '초대받은 보상', inviter: '초대 보상', grant: '이벤트', charge: '충전 (→ 박형원)', 'charge-refund': '충전 되돌림', redeem: '환매 (박형원 →)' };
 
 export default async function me(page) {
   const [m, rank, mine] = await Promise.all([api(`me/${account.address}`), api('rank'), api(`feed?mine=1&me=${account.address}&limit=60`)]);
@@ -30,7 +30,7 @@ export default async function me(page) {
     </section>
 
     <section class="card"><div class="card-head"><h2>순위</h2><div class="seg small">${[['rich', '부자'], ['bet', '내기왕'], ['cp', '인기 쿠폰']].map(([k, t], i) => html`<button data-r="${k}" class="${i === 0 ? 'on' : ''}">${t}</button>`)}</div></div>
-      <div data-rv="rich">${rankList(rank.rich, (r) => `${won(r.total)}`)}<p class="hint">통장 원화 + 지갑 서길원</p></div>
+      <div data-rv="rich">${rankList(rank.rich, (r) => `${won(r.total)}`)}<p class="hint">통장 원화 + 지갑 박형원</p></div>
       <div data-rv="bet" hidden>${rank.betKing.length ? rankList(rank.betKing, (r) => `${r.net >= 0 ? '+' : ''}${won(r.net)}`) : html`<p class="muted">아직 끝난 내기가 없어요</p>`}</div>
       <div data-rv="cp" hidden>${rank.coupons.length ? html`<ol class="rank">${rank.coupons.map((c, i) => html`<li><span class="n">${i + 1}</span><a href="#/coupons/${c.id}"><b>${c.name}</b></a><span class="v">${c.sold}장 팔림</span></li>`)}</ol>` : html`<p class="muted">아직 없어요</p>`}</div>
     </section>
@@ -55,7 +55,7 @@ export default async function me(page) {
       <button class="btn ghost danger" id="out">이 기기에서 로그아웃</button>
     </section>
     </div></div>
-    <p class="fine">청라더헤븐의 원화와 서길원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
+    <p class="fine">수원더헤븐의 원화와 박형원은 가치 없는 가상 화폐예요. 현금·물품으로 바꾸지 않아요.<br>모든 거래는 이더리움 시험망(${app.cfg.network.name})에 공개 기록됩니다.</p>`);
 
   bindDetails(page, mine, feedDetail);
   $$('[data-j]', page).forEach((li) => li.addEventListener('click', () => {

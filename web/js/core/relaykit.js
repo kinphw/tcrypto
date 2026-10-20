@@ -1,7 +1,7 @@
 // 서명 요청서(대납 봉투) 검증 — 브라우저와 운영 서버가 함께 쓴다 (globalThis.ethers 만 필요, 화면 코드 없음).
 // 봉투 종류 (k)
 //   fwd    : 대납 중계 요청 (명부·상점가·코인공장·내기판·쿠폰 시장의 일반 함수)
-//   auth   : 서길원 서명 송금 (transferWithAuthorization)
+//   auth   : 박형원 서명 송금 (transferWithAuthorization)
 //   redeem : 환매 — 운영 서버(발행 담당) 주소로 보내는 서명 송금. 서버가 받아서 소각하고 은행 통장에 원화로 돌려준다
 //   buy    : 상점 서명 결제 (Market.buyWithAuthorization)
 //   bet    : 내기 걸기 서명 결제 (Bets.betWithAuthorization)

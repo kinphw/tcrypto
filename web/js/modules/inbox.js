@@ -94,14 +94,14 @@ export default {
       <div class="card" id="auto"><div class="loading">자동 처리기 확인 중…</div></div>
 
       <div class="card"><div class="card-head"><h2>처리 대기</h2><span class="small muted" id="who"></span></div>
-        <p class="small muted"><b>올려 주기</b> = 내 ETH 로 수수료를 내고 이 요청을 블록체인에 기록해 주기. 내용은 서명한 그대로이고 바꿀 수 없습니다. <b>발행</b> = 입금을 확인하고 서길원을 찍어 주기 (발행 담당자만).</p>
+        <p class="small muted"><b>올려 주기</b> = 내 ETH 로 수수료를 내고 이 요청을 블록체인에 기록해 주기. 내용은 서명한 그대로이고 바꿀 수 없습니다. <b>발행</b> = 입금을 확인하고 박형원을 찍어 주기 (발행 담당자만).</p>
         <div id="pending" class="loading">우편함 읽는 중…</div></div>
       <div class="card"><h2>처리됨 · 만료</h2><div id="done" class="loading">…</div></div>
 
       ${explain('실제 USDC 서비스와 비교', html`
         <p>USDC 는 처음부터 <b>서명만으로 송금</b>(EIP-3009)할 수 있게 만들어졌습니다. 이용자가 서명하면 <b>지갑·결제 회사의 서버(릴레이어)</b>가 그 서명을 받아 수수료를 내고 블록체인에 올립니다. 이용자는 ETH 가 없어도 됩니다.
-        청라더헤븐도 같은 구조인데, <b>그 서버를 누구나 들여다볼 수 있는 공개 우편함으로 바꿨다</b>는 점만 다릅니다.</p>
-        <div class="table-wrap"><table><thead><tr><th>단계</th><th>실제 서비스</th><th>청라더헤븐</th></tr></thead><tbody>
+        수원더헤븐도 같은 구조인데, <b>그 서버를 누구나 들여다볼 수 있는 공개 우편함으로 바꿨다</b>는 점만 다릅니다.</p>
+        <div class="table-wrap"><table><thead><tr><th>단계</th><th>실제 서비스</th><th>수원더헤븐</th></tr></thead><tbody>
           <tr><td>서명</td><td>지갑 앱에서 서명</td><td>MetaMask 에서 서명 (같은 표준: EIP-712, EIP-3009, ERC-2771)</td></tr>
           <tr><td>전달</td><td>앱 → 회사 서버. <b>밖에서 안 보임</b></td><td>화면 → 공개 우편함. <b>누구나 열람</b> (위 ② 링크)</td></tr>
           <tr><td>대기열</td><td>회사 내부 데이터베이스</td><td>ntfy.sh 공개 주제, ${KEEP_HOURS}시간 보관</td></tr>

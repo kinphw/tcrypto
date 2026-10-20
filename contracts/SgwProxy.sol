@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title SgwProxy - 서길원의 '고정 주소' (업그레이드 가능 프록시, EIP-1967)
-/// @notice 이용자·지갑·이더스캔은 이 주소를 서길원으로 안다. 이 컨트랙트는 거의 아무 기능도 없고,
+/// @title SgwProxy - 박형원의 '고정 주소' (업그레이드 가능 프록시, EIP-1967)
+/// @notice 이용자·지갑·이더스캔은 이 주소를 박형원으로 안다. 이 컨트랙트는 거의 아무 기능도 없고,
 ///         들어온 호출을 '구현' 컨트랙트의 코드로 실행(delegatecall)하되 데이터는 자기 저장공간에 둔다.
 ///         관리자(admin)가 upgradeTo 로 구현 주소를 바꾸면, 주소와 잔액은 그대로인 채 규칙이 바뀐다.
 ///         구현 주소·관리자 주소는 EIP-1967 이 정한 고정 칸에 저장되어, 이더스캔 등이 자동으로 알아본다.
@@ -28,7 +28,7 @@ contract SgwProxy {
     function proxyAdmin() external view returns (address a) { assembly { a := sload(ADMIN_SLOT) } }
     function proxyImplementation() external view returns (address i) { assembly { i := sload(IMPLEMENTATION_SLOT) } }
 
-    /// @notice 관리자만: 서길원의 규칙(구현)을 새 코드로 교체
+    /// @notice 관리자만: 박형원의 규칙(구현)을 새 코드로 교체
     function upgradeTo(address newImplementation) external {
         require(msg.sender == _admin(), "proxy: caller is not the admin");
         _setImplementation(newImplementation);

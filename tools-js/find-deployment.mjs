@@ -1,4 +1,4 @@
-// 발행자 주소만으로 청라더헤븐 컨트랙트 6개의 주소를 찾아 web/app-config.json 에 기록한다.
+// 발행자 주소만으로 수원더헤븐 컨트랙트 6개의 주소를 찾아 web/app-config.json 에 기록한다.
 // 원리: 컨트랙트 주소 = keccak256(rlp(배포자 주소, 배포 당시 nonce)) 의 끝 20바이트 → nonce 를 차례로 대입해 계산하고,
 //       그 주소의 코드가 우리 소스를 컴파일한 결과와 같은지 비교한다.
 //   node tools-js/find-deployment.mjs <발행자주소> [설정파일=web/app-config.json]
@@ -41,7 +41,7 @@ for (let to = head; to >= 0 && lo === null; to -= 50000) {
   const logs = await p.getLogs({ address: found.Seogilwon, fromBlock: Math.max(0, to - 49999), toBlock: to });
   if (logs.length) lo = Math.max(0, Math.min(...logs.map((l) => l.blockNumber)) - 50);
 }
-if (lo === null) { console.error('서길원 프록시의 배포 기록을 찾지 못했습니다'); process.exit(1); }
+if (lo === null) { console.error('박형원 프록시의 배포 기록을 찾지 못했습니다'); process.exit(1); }
 cfg.issuer = issuer;
 cfg.contracts = found;
 cfg.deployBlock = lo;

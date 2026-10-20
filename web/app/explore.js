@@ -2,9 +2,9 @@
 import { app, api, html, raw, render, $, won, who, nameOf, ago, when, short, toast, addrOfName } from './core.js';
 
 const E = () => globalThis.ethers;
-const CNAME = { Seogilwon: '서길원 토큰', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기', FriendCoin: '친구 코인' };
+const CNAME = { Seogilwon: '박형원 토큰', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기', FriendCoin: '친구 코인' };
 const EV = {
-  Transfer: '서길원 이동', Mint: '발행', Burn: '소각', Joined: '가입', Placed: '내기 걸기', Created: '만들기', Resolved: '내기 결과', Cancelled: '내기 취소',
+  Transfer: '박형원 이동', Mint: '발행', Burn: '소각', Joined: '가입', Placed: '내기 걸기', Created: '만들기', Resolved: '내기 결과', Cancelled: '내기 취소',
   Claimed: '내기 정산', Bought: '쿠폰 구매', Gifted: '쿠폰 선물', Redeemed: '쿠폰 사용', SaleChanged: '쿠폰 판매 설정', ShopOpened: '가게 열기', ShopStatus: '가게 열고 닫기',
   ProductListed: '상품 올리기', ProductUpdated: '상품 수정', Purchased: '상품 구매', CoinCreated: '코인 만들기', Executed: '대납 실행', AuthorizationUsed: '서명 사용',
   MinterConfigured: '발행 한도 설정', MinterRemoved: '발행 담당 해제', Blacklisted: '이용 제한', UnBlacklisted: '이용 제한 해제', Paused: '전체 정지', Unpaused: '정지 해제',
@@ -71,7 +71,7 @@ async function addrPage(page, addr) {
       <code class="addr">${d.address}</code>
       <p class="muted small" style="margin-top:8px">${kind[1]}${role ? html`<br><b>${role}</b>` : ''}</p>
       <div class="xstats">
-        <div><small>서길원</small><b>${won(d.sgw)}</b></div>
+        <div><small>박형원</small><b>${won(d.sgw)}</b></div>
         <div><small>ETH (수수료용)</small><b>${eth(d.eth)}</b></div>
         <div><small>${d.kind === 'contract' ? '만든 컨트랙트 수' : '보낸 거래 수'}</small><b>${d.nonce}</b></div>
       </div>

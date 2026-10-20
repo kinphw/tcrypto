@@ -87,7 +87,7 @@ if (cmd === 'key') {
   await step('소유자 → 발행자', t.transferOwnership(issuer));
   saveConfig({
     contracts: C, deployBlock, gamesDeployBlock: deployBlock,
-    inbox: { ...(cfg.inbox || {}), topic: `cheongna-sgw-${cfg.network.chainId}-${C.Seogilwon.slice(2, 10).toLowerCase()}` },
+    inbox: { ...(cfg.inbox || {}), topic: `suwon-phw-${cfg.network.chainId}-${C.Seogilwon.slice(2, 10).toLowerCase()}` },
   });
   console.log(`새 주소를 ${CONFIG_FILE} 에 기록했습니다. 서버 장부를 비우고 다시 켜세요.`);
 } else if (cmd === 'local') {
@@ -107,7 +107,7 @@ if (cmd === 'key') {
   await (await t.mint(issuer.address, 50000, '기존 발행분 (시험)')).wait();
   const net = await p.getNetwork();
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    appName: '청라더헤븐', network: { chainId: Number(net.chainId), name: 'Local', rpc: 'http://127.0.0.1:8545', explorer: '', currency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, faucets: [] },
+    appName: '수원더헤븐', network: { chainId: Number(net.chainId), name: 'Local', rpc: 'http://127.0.0.1:8545', explorer: '', currency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, faucets: [] },
     issuer: issuer.address, contracts: C, deployBlock: 0,
   }, null, 2) + '\n');
   console.log(`로컬 배포 완료 → ${CONFIG_FILE}\n운영 지갑 ${op.address}: 발행 한도 1천만 · 정지 · 차단 · 내기판 관리자 · ETH 10`);

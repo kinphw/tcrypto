@@ -1,4 +1,4 @@
-// 참여 보상: 가입·출석·초대. 보상은 서길원이 아니라 은행 통장 원화로 준다 (발행은 언제나 충전을 거쳐서만).
+// 참여 보상: 가입·출석·초대. 보상은 박형원이 아니라 은행 통장 원화로 준다 (발행은 언제나 충전을 거쳐서만).
 import { db, now, today, settings } from './db.mjs';
 import { transfer, TREASURY } from './bank.mjs';
 

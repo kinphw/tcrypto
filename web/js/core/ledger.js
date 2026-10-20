@@ -43,9 +43,9 @@ export async function readAccount(address, storageKeys = [], blockTag = 'latest'
   return { block, proof, account, storage };
 }
 
-/** 토큰 컨트랙트 주소 → 산출물 (서길원 또는 친구 코인만) */
+/** 토큰 컨트랙트 주소 → 산출물 (박형원 또는 친구 코인만) */
 async function tokenArtifact(address) {
-  const name = await resolveName(address); // 서길원 프록시면 구현(V1/V2)의 변수 배치를 쓴다 — 데이터는 프록시 저장공간에 있음
+  const name = await resolveName(address); // 박형원 프록시면 구현(V1/V2)의 변수 배치를 쓴다 — 데이터는 프록시 저장공간에 있음
   return ['SeogilwonV1', 'SeogilwonV2', 'FriendCoin'].includes(name) ? { name, art: await artifact(name) } : null;
 }
 

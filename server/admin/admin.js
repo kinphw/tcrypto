@@ -50,7 +50,7 @@ const TABS = {
     v.innerHTML = `
       ${warn.length ? `<div class="card"><h2 class="warn">확인 필요</h2>${warn.map((w) => `<div class="warn">• ${esc(w)}</div>`).join('')}</div>` : ''}
       <div class="grid">
-        <div class="card stat"><div class="k">총발행량</div><div class="v">${won(r.supply)} sgw</div><div class="s">소각 대기 ${won(r.pendingBurn)}</div></div>
+        <div class="card stat"><div class="k">총발행량</div><div class="v">${won(r.supply)} phw</div><div class="s">소각 대기 ${won(r.pendingBurn)}</div></div>
         <div class="card stat"><div class="k">준비금 계좌 (가상 은행)</div><div class="v ${r.ok ? 'ok' : 'bad'}">${won(r.reserve)}원</div><div class="s">${r.ok ? '총발행량 − 소각 대기와 일치 ✓' : '불일치 ✗'}</div></div>
         <div class="card stat"><div class="k">참여자</div><div class="v">${won(o.users)}명</div><div class="s">통장 예금 합계 ${won(o.bank.deposits)}원</div></div>
         <div class="card stat"><div class="k">오늘 보상 지급</div><div class="v">${won(o.rewardedToday)}원</div><div class="s">하루 상한 ${won(o.settings.dailyRewardCap)}원</div></div>
@@ -95,7 +95,7 @@ const TABS = {
       <div class="card"><h2>이용 제한 (블랙리스트, 공개 기록)</h2>
         <div class="row"><input id="bWho" placeholder="닉네임 또는 주소"><input id="bWhy" placeholder="사유" style="flex:1"><button id="bl" class="danger">차단</button><button id="ubl">차단 해제</button></div></div>
       <div class="card wrap"><div class="row"><input id="q" placeholder="찾기" value="${esc(TABS.사람.q || '')}"><span class="muted">${shown.length} / ${users.length}명</span></div>
-      <table><tr><th>닉네임</th><th>가입</th><th class="num">통장(원)</th><th class="num">지갑(sgw)</th><th>출석</th><th>초대한 사람</th><th>IP</th></tr>
+      <table><tr><th>닉네임</th><th>가입</th><th class="num">통장(원)</th><th class="num">지갑(phw)</th><th>출석</th><th>초대한 사람</th><th>IP</th></tr>
       ${shown.map((u) => `<tr><td>${esc(u.name)}<div class="muted mono">${short(u.addr)}</div></td><td>${time(u.joinedAt)}</td><td class="num">${won(u.bank)}</td><td class="num">${won(u.sgw)}</td>
         <td>${u.lastCheckin ? `${esc(u.lastCheckin)} (${u.streak}일)` : '-'}</td><td>${u.invitedBy ? who(u.invitedBy) : ''}</td><td class="muted mono">${esc(u.ip || '')}</td></tr>`).join('')}</table></div>`;
     $('#q', v).addEventListener('change', (e) => { TABS.사람.q = e.target.value; render(); });

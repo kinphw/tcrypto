@@ -10,9 +10,9 @@ interface ISgwCoupons {
     ) external;
 }
 
-/// @title Coupons - 청라더헤븐 쿠폰 시장
+/// @title Coupons - 수원더헤븐 쿠폰 시장
 /// @notice 누구나 "밥 한 끼 사주기권" 같은 쿠폰을 정해진 장수만큼 만든다. 만든 사람이 처음에 전부 갖고,
-///   서길원(sgw)을 받고 팔거나(buyWithAuthorization) 그냥 선물한다(gift). 받은 사람은 선물을 이어서 넘길 수도 있다.
+///   박형원(sgw)을 받고 팔거나(buyWithAuthorization) 그냥 선물한다(gift). 받은 사람은 선물을 이어서 넘길 수도 있다.
 ///   쿠폰을 쓰면(redeem) 그 장수만큼 사라지고, 만든 사람에게 '사용됨' 기록(이벤트)이 남는다 → 만든 사람이 약속을 지킨다.
 ///   쿠폰 사진은 상점가처럼 이벤트 로그에 담고 저장소에는 지문(해시)만 남긴다.
 contract Coupons is ERC2771Context {

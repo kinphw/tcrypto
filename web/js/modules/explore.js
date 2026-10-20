@@ -20,7 +20,7 @@ function line(c, ev) {
     case "Seogilwon.Pause": return html`${tag("전체 정지", "bad")} ${a.reason}`;
     case "Seogilwon.Unpause": return html`${tag("정지 해제", "ok")}`;
     case "Seogilwon.ReserveAttested": return html`${tag("준비금 공시", "info")} ${won(a.reserve)}`;
-    case "Seogilwon.Upgraded": return html`${tag("업그레이드", "bad")} 서길원의 규칙이 ${addrLink(a.implementation)} 로 바뀜`;
+    case "Seogilwon.Upgraded": return html`${tag("업그레이드", "bad")} 박형원의 규칙이 ${addrLink(a.implementation)} 로 바뀜`;
     case "Seogilwon.Clawback": return html`${tag("강제 회수", "bad")} ${addrLink(a.from)} 에서 ${won(a.amount)}`;
     case "Market.ShopOpened": return html`${tag("개점", "info")} ${addrLink(a.owner)} 의 <a href="#/shop/s/${a.shopId}">${a.name}</a>`;
     case "Market.ProductListed": return html`${tag("상품 등록")} <a href="#/shop/p/${a.productId}">${a.name}</a> ${won(a.price)}`;

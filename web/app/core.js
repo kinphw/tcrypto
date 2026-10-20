@@ -1,4 +1,4 @@
-// 청라더헤븐 앱 공용 부분: 서버 API · 내 지갑(브라우저 지갑 또는 MetaMask) · 서명 요청 만들기 · 작은 화면 도구
+// 수원더헤븐 앱 공용 부분: 서버 API · 내 지갑(브라우저 지갑 또는 MetaMask) · 서명 요청 만들기 · 작은 화면 도구
 // 참여자는 언제나 '서명'만 한다. 블록체인에 올리고 수수료를 내는 것은 운영 서버다.
 import { TYPES, forwarderDomain, tokenDomain, buildAuthorization } from '../js/core/sigs.js';
 
@@ -84,7 +84,7 @@ export function forgetWallet() {
 
 // ── 서버 보관함 (다른 기기에서 닉네임 + 비밀번호 로그인) ──
 const authKey = (name, pw) => E().hexlify(E().scryptSync(E().toUtf8Bytes(pw), E().toUtf8Bytes(`tcrypto-login:${name}`), 1 << 14, 8, 1, 32));
-const vaultMessage = (addr, vault, at) => `청라더헤븐 계정 보관\n주소: ${addr}\n암호문 지문: ${E().keccak256(E().toUtf8Bytes(vault))}\n시각: ${at}`;
+const vaultMessage = (addr, vault, at) => `수원더헤븐 계정 보관\n주소: ${addr}\n암호문 지문: ${E().keccak256(E().toUtf8Bytes(vault))}\n시각: ${at}`;
 export async function uploadVault(name, pw) {
   const vault = store.get(VAULT);
   const at = Math.floor(Date.now() / 1000);
@@ -147,7 +147,7 @@ export async function signCall(contract, method, args, { gas = 600000, label } =
   const sig = await sign(fwdDomain(), { ForwardRequest: TYPES.ForwardRequest }, req);
   return { k: 'fwd', chainId: chainId(), label, req, sig };
 }
-/** 서길원 서명 결제·송금. k: auth(송금) · redeem(환매) · buy · bet · cbuy */
+/** 박형원 서명 결제·송금. k: auth(송금) · redeem(환매) · buy · bet · cbuy */
 export async function signPay(k, to, value, extra = {}) {
   const kind = k === 'auth' || k === 'redeem' ? 'TransferWithAuthorization' : 'ReceiveWithAuthorization';
   const a = buildAuthorization({ from: account.address, to, value: BigInt(value), ttlDays: 1 });
@@ -285,7 +285,7 @@ export function bindAmount(root, id, max = null) {
 export const xTx = (h) => `#/x/tx/${h}`;
 export const xAddr = (a) => `#/x/addr/${a}`;
 const scan = (kind, id) => (app.cfg.network.explorer ? `${app.cfg.network.explorer}/${kind}/${id}` : null);
-const contractName = { Seogilwon: '서길원 (토큰)', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기' };
+const contractName = { Seogilwon: '박형원 (토큰)', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기' };
 
 /** 블록체인 기록 하나를 원본 그대로 보여 주는 시트. addrs: [[이름표, 주소], …] */
 export function detailSheet({ title = '블록체인 기록', tx, block, contract, event, args, addrs = [], note } = {}) {

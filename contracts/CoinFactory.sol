@@ -5,7 +5,7 @@ import "./Forwarder.sol";
 
 /// @title FriendCoin - 참여자 누구나 만드는 '내 코인' (ERC-20, 소수점 0)
 /// @notice 만든 사람(발행자)만 추가 발행할 수 있고, 보유자는 자기 코인을 소각할 수 있다.
-///         준비자산·발행 한도·블랙리스트·업그레이드 같은 장치가 없다는 점이 서길원과 다르다.
+///         준비자산·발행 한도·블랙리스트·업그레이드 같은 장치가 없다는 점이 박형원과 다르다.
 ///         대납 중계(Forwarder)를 통하면 서명만으로 보내고 발행할 수 있다.
 contract FriendCoin is ERC2771Context {
     string public name;

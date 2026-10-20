@@ -35,9 +35,9 @@ export async function refreshMe() {
 function drawHeader() {
   const m = app.me;
   render($('#top'), html`
-    <a class="brand" href="#/"><span class="logo">원</span><b>청라더헤븐</b></a>
+    <a class="brand" href="#/"><span class="logo">원</span><b>수원더헤븐</b></a>
     <span class="sp"></span>
-    ${m?.user ? html`<a class="pill" href="#/" title="통장 · 지갑"><span class="muted">통장</span> ${won(m.bank)}<span class="muted">원</span> <span class="dot">·</span> ${won(m.sgw)}<span class="muted">sgw</span></a>` : ''}`);
+    ${m?.user ? html`<a class="pill" href="#/" title="통장 · 지갑"><span class="muted">통장</span> ${won(m.bank)}<span class="muted">원</span> <span class="dot">·</span> ${won(m.sgw)}<span class="muted">phw</span></a>` : ''}`);
 }
 
 function drawNav(active) {
@@ -87,8 +87,8 @@ function onboarding() {
   render(view, html`
     <div class="hero">
       <div class="hero-logo">원</div>
-      <h1>청라더헤븐</h1>
-      <p class="lead">친구들끼리 쓰는 가상 원화 코인 <b>서길원</b>.<br>내기하고, 쿠폰 주고받고, 가게도 열어 보세요.</p>
+      <h1>수원더헤븐</h1>
+      <p class="lead">친구들끼리 쓰는 가상 원화 코인 <b>박형원</b>.<br>내기하고, 쿠폰 주고받고, 가게도 열어 보세요.</p>
       ${by ? html`<div class="invited">🎁 <b>${by}</b> 님이 초대했어요 · 가입하면 둘 다 <b>${won(r.inviteReward)}원</b></div>` : ''}
       <div class="card">
         <label class="lbl" for="nick">닉네임</label>
@@ -168,7 +168,7 @@ function lockScreen() {
   render(view, html`
     <div class="hero">
       <div class="hero-logo">원</div>
-      <h1>${nm ? `${nm} 님` : '청라더헤븐'}</h1>
+      <h1>${nm ? `${nm} 님` : '수원더헤븐'}</h1>
       <p class="lead">비밀번호로 잠금을 풀어 주세요.</p>
       <form class="card" id="unlockForm">
         <input type="text" autocomplete="username" value="${nm || ''}" hidden>
@@ -225,7 +225,7 @@ function welcome(paid = []) {
   const total = paid.reduce((s, p) => s + p.amount, 0);
   if (!total) return;
   sheet(html`<div class="center"><div class="big-emoji">🎉</div><h2>통장에 ${won(total)}원이 들어왔어요</h2>
-    <p class="muted">이건 <b>가상 은행 통장</b>의 원화예요. 내기·쿠폰·상점에 쓰려면 <b>충전</b>해서 서길원(sgw)으로 바꾸세요.<br>1원 = 1 sgw, 언제든 다시 통장으로 돌려받을 수 있어요(환매).</p>
+    <p class="muted">이건 <b>가상 은행 통장</b>의 원화예요. 내기·쿠폰·상점에 쓰려면 <b>충전</b>해서 박형원(phw)으로 바꾸세요.<br>1원 = 1 phw, 언제든 다시 통장으로 돌려받을 수 있어요(환매).</p>
     <ul class="paid">${paid.map((p) => html`<li>${{ signup: '가입 축하금', invite: '초대 보상' }[p.kind] || p.kind} <b>+${won(p.amount)}원</b></li>`)}</ul></div>`);
 }
 

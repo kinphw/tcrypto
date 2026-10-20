@@ -11,11 +11,11 @@ interface ISgw {
     ) external;
 }
 
-/// @title Market - 청라더헤븐 상점가
-/// @notice 누구나 상점을 열고 상품을 올린다. 구매하면 서길원(sgw)이 구매자에게서 상점 주인에게 옮겨진다.
+/// @title Market - 수원더헤븐 상점가
+/// @notice 누구나 상점을 열고 상품을 올린다. 구매하면 박형원(sgw)이 구매자에게서 상점 주인에게 옮겨진다.
 ///   결제 방법 두 가지
 ///   1) buy                  : (ERC-20 표준) 미리 '결제 허용(approve)' 한 뒤 구매. 구매자가 ETH 수수료를 낸다.
-///   2) buyWithAuthorization : (USDC 의 EIP-3009) 구매자는 "상점가가 내 서길원 N 을 받아 가도 된다"에 서명만 하고,
+///   2) buyWithAuthorization : (USDC 의 EIP-3009) 구매자는 "상점가가 내 박형원 N 을 받아 가도 된다"에 서명만 하고,
 ///                             누구든 대신 올리며 수수료를 낸다. 결제와 재고 감소가 한 거래 안에서 함께 성공하거나 함께 실패한다.
 ///   상점 열기·상품 올리기 등은 대납 중계(Forwarder)를 통하면 서명만으로 할 수 있다.
 ///   상품 사진은 저장소가 아니라 이벤트 로그에 담는다(훨씬 싸다). 저장소에는 사진의 지문(해시)만 남긴다.
@@ -93,7 +93,7 @@ contract Market is ERC2771Context {
         emit ProductUpdated(productId, price, stock, active);
     }
 
-    /// @notice 결제 방법 1: 미리 approve 해 둔 서길원으로 구매 (구매자가 수수료를 냄)
+    /// @notice 결제 방법 1: 미리 approve 해 둔 박형원으로 구매 (구매자가 수수료를 냄)
     function buy(uint256 productId, uint256 quantity, string calldata note) external returns (uint256 orderId) {
         address buyer = _msgSender();
         (uint256 total, address seller, uint256 shopId) = _take(productId, quantity, buyer, note);

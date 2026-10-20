@@ -18,7 +18,7 @@ function drawNav() {
   const navMods = MODULES.filter((m) => m.nav !== false);
   const groups = [...new Set(navMods.map((m) => m.group))];
   render($('#nav'), html`
-    <div class="brand"><span class="logo">원</span><div><b>${chain.cfg?.appName || '청라더헤븐'}</b><small>서길원 SGW 거래소${chain.cfg ? ' · ' + chain.cfg.network.name.toUpperCase() : ''}</small></div></div>
+    <div class="brand"><span class="logo">원</span><div><b>${chain.cfg?.appName || '수원더헤븐'}</b><small>박형원 SGW 거래소${chain.cfg ? ' · ' + chain.cfg.network.name.toUpperCase() : ''}</small></div></div>
     ${groups.map((g) => html`<div class="group">${g}</div>${navMods.filter((m) => m.group === g).map((m) => html`<a href="#/${m.id}" data-id="${m.id}"><span class="ico">${m.icon}</span>${m.title}</a>`)}`)}
     <div class="group">안내</div>
     <a href="guide.html" target="_blank" rel="noopener"><span class="ico">DOC</span>참여 안내서</a>
@@ -40,7 +40,7 @@ async function route() {
     // 다른 사람이(대납 포함) 가입했을 수 있으니 화면을 옮길 때마다 명부를 다시 읽음 (호출 1번)
     if (chain.ready) await loadMembers().catch(() => {});
     const m = (await mod.load()).default;
-    document.title = `${m.title || mod.title} · ${chain.cfg?.appName || '청라더헤븐'}`;
+    document.title = `${m.title || mod.title} · ${chain.cfg?.appName || '수원더헤븐'}`;
     const myScope = scope;
     const ret = await m.render(page, params.filter(Boolean), app);
     if (typeof ret === 'function') myScope.push(ret);

@@ -5,7 +5,7 @@ import { createAddressSteps } from '../core/ledger.js';
 import { readInbox, requestStatus } from '../core/inbox.js';
 
 const E = () => globalThis.ethers;
-const TOKEN = { name: '서길원', symbol: 'sgw', currency: 'KRW', decimals: 0 };
+const TOKEN = { name: '박형원', symbol: 'sgw', currency: 'KRW', decimals: 0 };
 const INITIAL_ALLOWANCE = 100_000_000n;
 
 function describe(ev) {
@@ -36,10 +36,10 @@ function describe(ev) {
 // ───────── 처음 설정: MetaMask 로 6개 배포 + 발행 담당 지정 ─────────
 const SETUP = [
   { name: 'Forwarder', ko: '대납 중계', desc: '서명만으로 이름표·상점·코인 만들기를 하게 해 주는 중계기 (ERC-2771)' },
-  { name: 'SeogilwonV1', ko: '서길원 구현 V1', desc: '서길원의 규칙(코드). 직접 쓰지 않고 프록시가 빌려 씀' },
-  { name: 'SgwProxy', key: 'Seogilwon', ko: '서길원 (프록시)', desc: '모두가 쓰는 서길원의 고정 주소. 잔액이 저장되는 곳' },
+  { name: 'SeogilwonV1', ko: '박형원 구현 V1', desc: '박형원의 규칙(코드). 직접 쓰지 않고 프록시가 빌려 씀' },
+  { name: 'SgwProxy', key: 'Seogilwon', ko: '박형원 (프록시)', desc: '모두가 쓰는 박형원의 고정 주소. 잔액이 저장되는 곳' },
   { name: 'Members', ko: '명부', desc: '이름표 (주소 ↔ 이름, 선택)' },
-  { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (서길원 주소가 필요)' },
+  { name: 'Market', ko: '상점가', desc: '상점·상품·구매 (박형원 주소가 필요)' },
   { name: 'CoinFactory', ko: '코인공장', desc: '누구나 내 코인 만들기' },
 ];
 
@@ -51,7 +51,7 @@ async function renderSetup(view) {
   render(view, html`
     <div class="page-head"><div><h1>처음 설정 (발행자 전용)</h1><div class="sub">${chain.cfg.network.name} 장부에 거래소 프로그램 6개를 올리고, 자신을 발행 담당으로 지정합니다</div></div></div>
     <div class="card">
-      <p>지금 연결된 주소 ${addrLink(me)} 가 서길원의 <b>소유자·발행 총괄·정지 담당·블랙리스트 담당·프록시 관리자</b>가 됩니다 (나중에 각각 다른 사람에게 넘길 수 있음).</p>
+      <p>지금 연결된 주소 ${addrLink(me)} 가 박형원의 <b>소유자·발행 총괄·정지 담당·블랙리스트 담당·프록시 관리자</b>가 됩니다 (나중에 각각 다른 사람에게 넘길 수 있음).</p>
       <h3>배포하면 생길 주소 — 미리 계산한 예측</h3>
       <div class="table-wrap"><table><thead><tr><th>순서</th><th>프로그램</th><th class="num">nonce</th><th>예측 주소</th><th>실제</th></tr></thead><tbody>
         ${predicted.map((p, i) => html`<tr id="row-${p.name}"><td>${i + 1}</td><td><b>${p.ko}</b> <span class="muted small">${p.name}</span><br><span class="small muted">${p.desc}</span></td>
@@ -157,7 +157,7 @@ export default {
       const myRoles = [[owner, '소유자'], [masterMinter, '발행 총괄'], [pauser, '정지 담당'], [blacklister, '블랙리스트 담당'], [admin, '프록시 관리자']].filter(([a]) => is(a));
 
       render(view, html`
-        <div class="page-head"><div><h1>발행자 · 감독</h1><div class="sub">서길원 ${addrLink(chain.cfg.contracts.Seogilwon)} ${scan('token', chain.cfg.contracts.Seogilwon)} · 구현 V${ver}</div></div></div>
+        <div class="page-head"><div><h1>발행자 · 감독</h1><div class="sub">박형원 ${addrLink(chain.cfg.contracts.Seogilwon)} ${scan('token', chain.cfg.contracts.Seogilwon)} · 구현 V${ver}</div></div></div>
         ${me ? html`<p class="small">내 역할: ${myRoles.map(([, l]) => tag(l, 'info'))} ${myMinter ? tag(`발행 담당 (남은 한도 ${won(myAllowance)})`, 'info') : ''}
           ${!myRoles.length && !myMinter ? html`<span class="muted">없음 — 볼 수는 있지만 조치는 컨트랙트가 거절합니다</span>` : ''}</p>` : ''}
 
@@ -178,7 +178,7 @@ export default {
             ['발행 담당 (minter)', minters.length ? html`${minters.map((x) => html`<div>${addrLink(x.m)} — 남은 한도 ${won(x.allow)}</div>`)}` : '없음', '한도 안에서만 발행, 상환 받은 코인 소각'],
             ['정지 담당 (pauser)', addrLink(pauser, { full: true }), '전체 거래 일시정지'],
             ['블랙리스트 담당', addrLink(blacklister, { full: true }), '계좌 차단, 차단 계좌 자금 소각'],
-            ['프록시 관리자 (admin)', addrLink(admin, { full: true }), html`서길원의 <b>규칙 자체를 교체</b>할 수 있는 권한 — 가장 강력함`],
+            ['프록시 관리자 (admin)', addrLink(admin, { full: true }), html`박형원의 <b>규칙 자체를 교체</b>할 수 있는 권한 — 가장 강력함`],
             ['현재 구현', html`${addrLink(impl, { full: true })} ${tag('V' + ver, ver === '2' ? 'warn' : 'info')}`, '프록시가 지금 빌려 쓰는 코드'],
           ])}
         </div>
@@ -192,7 +192,7 @@ export default {
               <span class="small muted">발행 담당 한도 안에서만 됩니다. ${myMinter ? `남은 한도 ${won(myAllowance)}` : '지금 지갑은 발행 담당이 아닙니다.'}</span></div>
           </div>
           <div class="card"><h2>환매 처리</h2>
-            <p class="small muted">참여자가 발행사 주소로 보낸 서길원 = 환매 신청. 원화를 돌려준 뒤(블록체인 밖) 그만큼 소각합니다.</p>
+            <p class="small muted">참여자가 발행사 주소로 보낸 박형원 = 환매 신청. 원화를 돌려준 뒤(블록체인 밖) 그만큼 소각합니다.</p>
             ${redemptions.length ? html`<div class="table-wrap" style="max-height:180px;overflow:auto"><table><tbody>${redemptions.slice().reverse().slice(0, 10).map(({ ev, log }) => html`<tr><td>${addrLink(ev.args.from)}</td><td class="num">${won(ev.args.value)}</td><td>${txLink(log.transactionHash)}</td></tr>`)}</tbody></table></div>` : html`<div class="empty small">접수된 상환 없음</div>`}
             <div class="row" style="margin-top:8px"><input id="bAmt" type="number" min="1" placeholder="소각할 sgw" style="width:130px"><input id="bMemo" placeholder="메모 (예: 앨리스 상환)" style="flex:1;min-width:120px"><button class="btn small" id="burn" ${myMinter ? '' : 'disabled'}>소각</button></div>
           </div>
@@ -252,7 +252,7 @@ export default {
       const who = (id) => resolveRecipient($(id, view).value);
       const num = (id) => { const v = $(id, view).value.trim(); if (!/^\d+$/.test(v)) throw new Error('수량은 0 이상 정수'); return BigInt(v); };
       const why = (id, d) => $(id, view).value.trim() || d;
-      // 발행 담당은 서명할 수 있는 지갑이어야 한다. 컨트랙트(서길원 코인 주소 등)에 한도를 주면 아무도 쓸 수 없는 한도가 된다.
+      // 발행 담당은 서명할 수 있는 지갑이어야 한다. 컨트랙트(박형원 코인 주소 등)에 한도를 주면 아무도 쓸 수 없는 한도가 된다.
       const minterWho = async (id) => {
         const a = who(id);
         const code = await rpc('eth_getCode', [a, 'latest']);

@@ -100,14 +100,14 @@ ok(j.status === 'done', '앨리스 6만원 충전 → 발행 완료');
 r = await call('/api/relay', { obj: n1 });
 ok(r.duplicate, '같은 충전 신청서 다시 보내도 한 번만 (중복 방지)');
 ma = await me(alice);
-ok(ma.bank === bankA - 60000 && ma.sgw === 60000, `통장 ${ma.bank}원 · 지갑 ${ma.sgw} sgw`);
+ok(ma.bank === bankA - 60000 && ma.sgw === 60000, `통장 ${ma.bank}원 · 지갑 ${ma.sgw} phw`);
 await expectFail(async () => call('/api/relay', { obj: await notice(alice, 999999999) }), '통장 잔액보다 큰 충전');
 j = await waitJob((await call('/api/relay', { obj: await notice(bob, 40000) })).job.id);
 await reconciled('충전 뒤');
 
 console.log('\n■ 송금 (서명만, 수수료는 서버)');
 j = await relay(await auth(alice, 'TransferWithAuthorization', 'auth', bob.address, 5000));
-ok(j.status === 'done' && (await me(bob)).sgw === 45000, '앨리스 → 밥 5,000 sgw');
+ok(j.status === 'done' && (await me(bob)).sgw === 45000, '앨리스 → 밥 5,000 phw');
 ok((await p.getBalance(alice.address)) === 0n, '앨리스 ETH 0 그대로');
 
 console.log('\n■ 내기 (열기 → 걸기 → 결과 → 자동 정산)');
@@ -150,15 +150,15 @@ ok(mine.uses?.[0]?.note === '내일 오전' && mine.left === 2, '앨리스(만�
 const imgRes = await fetch(`${BASE}/api/img/coupon/${cp.id}`);
 ok(imgRes.ok && imgRes.headers.get('content-type') === 'image/png', '쿠폰 사진 제공');
 
-console.log('\n■ 환매 (서길원 → 발행사 → 소각, 통장으로 원화)');
+console.log('\n■ 환매 (박형원 → 발행사 → 소각, 통장으로 원화)');
 const bBank = (await me(bob)).bank;
 const bSgw = (await me(bob)).sgw;
 j = await relay(await auth(bob, 'TransferWithAuthorization', 'redeem', cfg.operator, 20000));
-ok(j.status === 'done', '밥 20,000 sgw 환매 신청 처리');
+ok(j.status === 'done', '밥 20,000 phw 환매 신청 처리');
 let burned = false;
 for (let i = 0; i < 30 && !burned; i++) { await sleep(1000); burned = (await call('/api/admin/overview', null, { admin: true })).reconcile.pendingBurn === 0; }
 const mb = await me(bob);
-ok(mb.bank === bBank + 20000 && mb.sgw === bSgw - 20000, `밥 통장 +20,000원, 지갑 −20,000 sgw`);
+ok(mb.bank === bBank + 20000 && mb.sgw === bSgw - 20000, `밥 통장 +20,000원, 지갑 −20,000 phw`);
 await expectFail(async () => call('/api/relay', { obj: await auth(bob, 'TransferWithAuthorization', 'auth', cfg.operator, 1) }), '환매가 아닌 송금으로 발행사에 보내기');
 await reconciled('환매·소각 뒤');
 

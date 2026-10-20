@@ -1,4 +1,4 @@
-// 내기판: 누구나 질문과 선택지로 내기를 열고, 마감 전까지 서길원을 건다.
+// 내기판: 누구나 질문과 선택지로 내기를 열고, 마감 전까지 박형원을 건다.
 // 마감 뒤 만든 사람이 결과를 정하면, 이긴 쪽에 건 사람들이 전체 판돈을 건 금액 비율대로 자동으로 나눠 받는다.
 import { techFold, app, api, account, html, render, $, $$, won, who, until, when, ago, sheet, busy, toast, submit, signCall, signPay, amountPicker, bindAmount, onSettled } from './core.js';
 
@@ -13,7 +13,7 @@ function card(b) {
     <div class="bet-top"><span class="tag ${b.state}">${STATE[b.state]}</span><span class="muted small">${b.state === 'open' ? until(b.closesAt) : b.resolvedAt ? ago(b.resolvedAt) : when(b.closesAt)}</span></div>
     <h3>${b.question}</h3>
     <div class="bars">${b.options.map((o, i) => html`<div class="bar ${b.winner === i ? 'win' : ''} ${b.mine?.stakes?.[i] ? 'mine' : ''}"><span class="fill" style="width:${pct(b.pools[i], b.pool)}%"></span><span class="lab">${b.winner === i ? '🏆 ' : ''}${o}</span><span class="num">${pct(b.pools[i], b.pool)}%</span></div>`)}</div>
-    <div class="bet-foot muted small">판돈 <b>${won(b.pool)}</b> sgw · ${b.bettors}명 · ${who(b.creator)} 님이 열었어요${b.mine ? html` · <span class="minehint">나도 걸었음</span>` : ''}</div>
+    <div class="bet-foot muted small">판돈 <b>${won(b.pool)}</b> phw · ${b.bettors}명 · ${who(b.creator)} 님이 열었어요${b.mine ? html` · <span class="minehint">나도 걸었음</span>` : ''}</div>
   </a>`;
 }
 
@@ -55,7 +55,7 @@ async function detail(page, id) {
       <section class="card bet-detail">
         <div class="bet-top"><span class="tag ${b.state}">${STATE[b.state]}</span><span class="muted small">마감 ${when(b.closesAt)}${b.state === 'open' ? ` · ${until(b.closesAt)}` : ''}</span></div>
         <h1>${b.question}</h1>
-        <p class="muted small">${who(b.creator)} 님이 열었어요 · 판돈 <b>${won(b.pool)}</b> sgw · ${b.bettors}명</p>
+        <p class="muted small">${who(b.creator)} 님이 열었어요 · 판돈 <b>${won(b.pool)}</b> phw · ${b.bettors}명</p>
         <div class="options">${b.options.map((o, i) => html`
           <button class="opt ${b.winner === i ? 'win' : ''} ${mine?.stakes?.[i] ? 'mine' : ''}" data-opt="${i}" ${b.state !== 'open' ? 'disabled' : ''}>
             <span class="fill" style="width:${pct(b.pools[i], b.pool)}%"></span>
@@ -66,8 +66,8 @@ async function detail(page, id) {
         ${b.state === 'open' ? html`<p class="hint">선택지를 눌러 걸어요. ×배수는 지금 기준 예상 배당이에요 (마감까지 바뀌어요).</p>` : ''}
         ${mine ? html`<div class="mybox">
           ${b.state === 'resolved' || b.state === 'cancelled'
-            ? mine.claimed != null ? html`✔ <b>${won(mine.claimed)} sgw</b> 받았어요` : mine.payout > 0 ? html`🏆 받을 돈 <b>${won(mine.payout)} sgw</b> — ${b.state === 'cancelled' ? '곧 환불돼요' : `결과 ${grace}분 뒤 자동으로 들어와요`}` : html`이번엔 졌어요 (건 돈 ${won(myTotal)} sgw)`
-            : html`내가 건 돈 <b>${won(myTotal)} sgw</b>`}</div>` : ''}
+            ? mine.claimed != null ? html`✔ <b>${won(mine.claimed)} phw</b> 받았어요` : mine.payout > 0 ? html`🏆 받을 돈 <b>${won(mine.payout)} phw</b> — ${b.state === 'cancelled' ? '곧 환불돼요' : `결과 ${grace}분 뒤 자동으로 들어와요`}` : html`이번엔 졌어요 (건 돈 ${won(myTotal)} phw)`
+            : html`내가 건 돈 <b>${won(myTotal)} phw</b>`}</div>` : ''}
         ${isCreator && b.state === 'closed' ? html`<div class="creator"><h3>결과 정하기</h3><p class="muted small">정직하게 정해 주세요. 결과 뒤 ${grace}분 동안은 관리자가 바로잡을 수 있어요.</p>
           <div class="row wrap">${b.options.map((o, i) => html`<button class="btn" data-res="${i}">${o}</button>`)}</div></div>` : ''}
         ${isCreator && b.state === 'open' && b.pool === 0 ? html`<button class="btn ghost danger" id="cancel">아무도 안 걸었으니 취소</button>` : ''}
@@ -85,8 +85,8 @@ async function detail(page, id) {
     $('#cancel', page)?.addEventListener('click', busy($('#cancel', page), async () => submit(await signCall('Bets', 'cancel', [b.id], { gas: 150000 }), '내기 취소')));
     $('#shareBet', page).addEventListener('click', () => {
       const url = `${location.origin}/?i=${encodeURIComponent(app.me.user.name)}#/bets/${b.id}`;
-      const text = `[청라더헤븐 내기] ${b.question} — ${b.options.join(' vs ')}`;
-      if (navigator.share) navigator.share({ title: '청라더헤븐 내기', text, url }).catch(() => {});
+      const text = `[수원더헤븐 내기] ${b.question} — ${b.options.join(' vs ')}`;
+      if (navigator.share) navigator.share({ title: '수원더헤븐 내기', text, url }).catch(() => {});
       else navigator.clipboard?.writeText(`${text}\n${url}`).then(() => toast('링크를 복사했어요'));
     });
   };
@@ -99,8 +99,8 @@ async function detail(page, id) {
 function betSheet(b, i) {
   const sgw = app.me.sgw;
   sheet(html`<h2>“${b.options[i]}”에 걸기</h2><p class="muted small">${b.question}</p>
-    ${amountPicker('amt', [1000, 5000, 10000, 30000], { unit: 'sgw' })}
-    <div class="balline">지갑 <b>${won(sgw)} sgw</b> ${sgw < 1000 ? html`· <a href="#/" class="small">충전하러 가기</a>` : ''}</div>
+    ${amountPicker('amt', [1000, 5000, 10000, 30000], { unit: 'phw' })}
+    <div class="balline">지갑 <b>${won(sgw)} phw</b> ${sgw < 1000 ? html`· <a href="#/" class="small">충전하러 가기</a>` : ''}</div>
     <div class="est muted" id="est"></div>
     <button class="btn primary big" id="go">걸기</button>`, {
     onMount: (body, close) => {
@@ -109,14 +109,14 @@ function betSheet(b, i) {
       input.addEventListener('input', () => {
         const v = Math.floor(Number(input.value)) || 0;
         const pool = b.pool + v, mineOpt = b.pools[i] + v;
-        $('#est', body).textContent = v ? `지금 이기면 약 ${won(Math.floor((v * pool) / mineOpt))} sgw 받아요` : '';
+        $('#est', body).textContent = v ? `지금 이기면 약 ${won(Math.floor((v * pool) / mineOpt))} phw 받아요` : '';
       });
       $('#go', body).addEventListener('click', busy($('#go', body), async () => {
         const v = get();
         if (v > sgw) throw new Error('지갑 잔액이 부족해요. 홈에서 충전하세요');
         const obj = await signPay('bet', app.cfg.contracts.Bets, v, { betId: b.id, option: i, label: `내기 #${b.id} “${b.options[i]}” ${won(v)}` });
         close();
-        await submit(obj, `“${b.options[i]}”에 ${won(v)} sgw`);
+        await submit(obj, `“${b.options[i]}”에 ${won(v)} phw`);
       }));
     },
   });

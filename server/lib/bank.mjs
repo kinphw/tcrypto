@@ -1,8 +1,8 @@
 // 가상 원화 은행 — 진짜 은행처럼 블록체인 밖(서버 장부)에 있다. 현금은 오가지 않는다.
 //  계좌: 참여자 통장(지갑 주소) · reserve(발행사 준비금 계좌) · treasury(놀이 돈이 생겨나는 곳, 음수 허용)
-//  충전 = 통장 → 준비금 이체 후 그만큼 서길원 발행        (실제: 은행 입금 → 발행사 확인 → 발행)
-//  환매 = 서길원을 발행사(운영 지갑)로 보내면 소각 후 준비금 → 통장 (실제: 상환 신청 → 소각 → 은행 송금)
-//  그래서 언제나  준비금 = 총발행량 − 소각 대기분(운영 지갑이 들고 있는 서길원)
+//  충전 = 통장 → 준비금 이체 후 그만큼 박형원 발행        (실제: 은행 입금 → 발행사 확인 → 발행)
+//  환매 = 박형원을 발행사(운영 지갑)로 보내면 소각 후 준비금 → 통장 (실제: 상환 신청 → 소각 → 은행 송금)
+//  그래서 언제나  준비금 = 총발행량 − 소각 대기분(운영 지갑이 들고 있는 박형원)
 import { db, now, today, tx, kvGet, kvSet, settings } from './db.mjs';
 import { cfg, contracts, operator, addrEq } from './chain.mjs';
 import { enqueue, onJob } from './queue.mjs';
@@ -61,9 +61,9 @@ export function charge(obj) {
   if (chargedToday(addr) + amount > cap) throw new Error(`하루 충전 한도(${cap.toLocaleString()}원)를 넘습니다`);
   const done = db.prepare('SELECT * FROM jobs WHERE key = ?').get(`mint:${v.digest}`);
   if (done) return { job: done, duplicate: true };
-  const t = transfer(addr, RESERVE, amount, 'charge', '서길원 충전', `charge:${v.digest}`);
+  const t = transfer(addr, RESERVE, amount, 'charge', '박형원 충전', `charge:${v.digest}`);
   return enqueue({
-    key: `mint:${v.digest}`, kind: 'mint', addr, label: `충전 ${amount.toLocaleString()}원 → ${amount.toLocaleString()} sgw`,
+    key: `mint:${v.digest}`, kind: 'mint', addr, label: `충전 ${amount.toLocaleString()}원 → ${amount.toLocaleString()} phw`,
     target: 'Seogilwon', method: 'mint', args: [addr, amount, `은행 충전 #${t.id}`], meta: { bankTx: t.id, amount },
   });
 }
@@ -81,10 +81,10 @@ export function redeem(obj) {
   if (!v.ok) throw new Error('서명이 맞지 않습니다');
   if (!addrEq(obj.auth.to, operator.address)) throw new Error('환매는 발행사 주소로 보내야 합니다');
   const a = big(obj.auth);
-  if (a.value < 1n) throw new Error('금액은 1 sgw 이상');
+  if (a.value < 1n) throw new Error('금액은 1 phw 이상');
   const s = splitSig(obj.sig);
   return enqueue({
-    key: `redeem:${v.digest}`, kind: 'redeem', addr: a.from, label: `환매 ${a.value.toLocaleString()} sgw → 통장`,
+    key: `redeem:${v.digest}`, kind: 'redeem', addr: a.from, label: `환매 ${a.value.toLocaleString()} phw → 통장`,
     target: 'Seogilwon', method: 'transferWithAuthorization', args: [a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, s.v, s.r, s.s],
     meta: { amount: Number(a.value) },
   });
@@ -92,8 +92,8 @@ export function redeem(obj) {
 onJob('redeem', {
   done(job) {
     const m = JSON.parse(job.meta || '{}');
-    const t = transfer(RESERVE, job.addr, m.amount, 'redeem', '서길원 환매', `redeem:${job.id}`);
-    enqueue({ key: `burn:${job.id}`, kind: 'burn', label: `환매분 소각 ${m.amount.toLocaleString()} sgw`, target: 'Seogilwon', method: 'burn', args: [m.amount, `은행 환매 #${t.id}`] });
+    const t = transfer(RESERVE, job.addr, m.amount, 'redeem', '박형원 환매', `redeem:${job.id}`);
+    enqueue({ key: `burn:${job.id}`, kind: 'burn', label: `환매분 소각 ${m.amount.toLocaleString()} phw`, target: 'Seogilwon', method: 'burn', args: [m.amount, `은행 환매 #${t.id}`] });
   },
 });
 
@@ -103,7 +103,7 @@ export async function reconcile() {
   const t = contracts.Seogilwon;
   const [supply, held] = await Promise.all([t.totalSupply(), operator ? t.balanceOf(operator.address) : 0n]);
   if (!kvGet('bank.seeded')) {
-    // 처음 켤 때: 이미 나가 있는 서길원만큼 준비금을 채워 시작점을 맞춘다
+    // 처음 켤 때: 이미 나가 있는 박형원만큼 준비금을 채워 시작점을 맞춘다
     const need = Number(supply - held) - balance(RESERVE);
     if (need > 0) transfer(TREASURY, RESERVE, need, 'seed', '기존 발행분 준비금 채우기', 'seed');
     kvSet('bank.seeded', '1');

@@ -73,11 +73,11 @@ async function renderMall(view, app) {
   const { shops, products } = await loadMarket();
   const list = [...products.values()].sort((a, b) => b.id - a.id);
   render(view, html`
-    <div class="page-head"><div><h1>상점가</h1><div class="sub">누구나 상점을 열고, 서길원(sgw)으로 사고팝니다 · 가상 상품이며 실제 배송은 없습니다</div></div>
+    <div class="page-head"><div><h1>상점가</h1><div class="sub">누구나 상점을 열고, 박형원(sgw)으로 사고팝니다 · 가상 상품이며 실제 배송은 없습니다</div></div>
       <span class="spacer"></span><a class="btn btn-primary" href="#/shop/mine">내 상점 관리</a></div>
-    ${explain('결제는 어떻게 이루어지나', html`<p>상품을 사면 <b>상점가 컨트랙트</b>가 재고를 줄이고, 같은 거래 안에서 서길원을 <b>구매자 → 상점 주인</b>에게 직접 옮깁니다.
+    ${explain('결제는 어떻게 이루어지나', html`<p>상품을 사면 <b>상점가 컨트랙트</b>가 재고를 줄이고, 같은 거래 안에서 박형원을 <b>구매자 → 상점 주인</b>에게 직접 옮깁니다.
       중간에 돈을 맡아 두는 회사가 없고, 재고 감소와 결제가 함께 성공하거나 함께 실패합니다(원자성).</p>
-      <p>구매할 때는 MetaMask 에서 “상점가가 내 서길원 N 을 받아 가도 된다”에 <b>서명</b>만 하면 됩니다(USDC 의 EIP-3009 방식). 수수료는 발행사가 냅니다.</p>`)}
+      <p>구매할 때는 MetaMask 에서 “상점가가 내 박형원 N 을 받아 가도 된다”에 <b>서명</b>만 하면 됩니다(USDC 의 EIP-3009 방식). 수수료는 발행사가 냅니다.</p>`)}
     <div class="card"><div class="card-head"><h2>상점 ${shops.size}곳</h2></div>
       <div class="row">${[...shops.values()].map((s) => html`<a class="pill" href="#/shop/s/${s.id}">${s.open ? '' : '(휴업) '}${s.name} <span class="muted">· ${chain.members[s.owner.toLowerCase()] || short(s.owner)}</span></a>`)}
       ${shops.size ? '' : html`<span class="muted">아직 상점이 없습니다. 첫 상점을 열어 보세요!</span>`}</div></div>
@@ -175,8 +175,8 @@ async function renderProduct(view, id, app, first = true) {
     const showHow = async () => {
       const mode = await feeMode();
       render($('#how', view), mode === 'direct'
-        ? html`<ol class="steps"><li class="${allowance > 0n ? 'done' : ''}"><div><b>결제 허용 (approve)</b> — 상점가가 내 서길원을 정해진 금액까지 꺼내 갈 수 있게 허락. 현재 허용액 ${won(allowance)}</div></li>
-            <li><div><b>구매 (buy)</b> — 재고 감소 + 서길원 이전이 한 거래로 처리. 수수료는 내 ETH.</div></li></ol>`
+        ? html`<ol class="steps"><li class="${allowance > 0n ? 'done' : ''}"><div><b>결제 허용 (approve)</b> — 상점가가 내 박형원을 정해진 금액까지 꺼내 갈 수 있게 허락. 현재 허용액 ${won(allowance)}</div></li>
+            <li><div><b>구매 (buy)</b> — 재고 감소 + 박형원 이전이 한 거래로 처리. 수수료는 내 ETH.</div></li></ol>`
         : html`<p class="small muted">MetaMask 에서 서명 한 번이면 끝. 보통 1분 안에 재고 감소와 결제가 함께 처리됩니다.</p>`);
     };
     showHow();

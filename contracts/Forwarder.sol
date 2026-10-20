@@ -27,7 +27,7 @@ contract Forwarder {
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
         return keccak256(abi.encode(
             keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256(bytes(unicode"청라더헤븐 대납 중계")), keccak256(bytes("1")), block.chainid, address(this)
+            keccak256(bytes(unicode"수원더헤븐 대납 중계")), keccak256(bytes("1")), block.chainid, address(this)
         ));
     }
 

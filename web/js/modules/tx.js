@@ -194,7 +194,7 @@ async function ledgerChanges(t, receipt, block, sym) {
     const delta = before !== null && after !== null ? after - before : null;
     rows.push(html`<tr>
       <td>${c.kind === 'eth' ? html`계정 ${addrLink(c.address)} 의 <code>balance</code> 칸<br><span class="muted small">${c.role}</span>`
-        : html`${c.token === 'Seogilwon' ? '서길원' : '친구 코인'} 프로그램 ${addrLink(c.address)} 의 저장공간<br><code>${c.var}[${short(c.key, 4, 4)}${c.key2 ? '][' + short(c.key2, 4, 4) : ''}]</code> ${c.key2 ? '' : html`<span class="muted small">(${addrLink(c.key)})</span>`}
+        : html`${c.token === 'Seogilwon' ? '박형원' : '친구 코인'} 프로그램 ${addrLink(c.address)} 의 저장공간<br><code>${c.var}[${short(c.key, 4, 4)}${c.key2 ? '][' + short(c.key2, 4, 4) : ''}]</code> ${c.key2 ? '' : html`<span class="muted small">(${addrLink(c.key)})</span>`}
           <br><span class="hash small" title="${c.slot}">칸 ${short(c.slot, 6, 6)}</span>`}</td>
       <td class="num">${fmt(before)}</td><td class="num">${fmt(after)}</td>
       <td class="num" style="color:var(${delta === null || delta === 0n ? '--muted' : delta < 0n ? '--bad' : '--ok'})">${delta === null ? '' : (delta > 0n ? '+' : '') + (c.kind === 'eth' ? E().formatEther(delta) : fmtNum(delta))}</td>
@@ -270,7 +270,7 @@ export default {
               ['총 수수료', html`<b>${eth(fee)}</b>`, `사용 가스 ${fmtNum(gasUsed)} × 가스 가격 ${fmtNum(eff)} wei`],
               ['소각', eth(burned), `기본 수수료 ${fmtNum(baseFee)} wei × 가스 — 영구 삭제`],
               ['검증자 몫', eth(tip), html`이 블록을 만든 검증자 ${addrLink(block.miner)}`],
-            ])}<p class="small muted">수수료는 서길원이 아니라 이더리움 자체 코인(${sym})으로 냅니다. 세폴리아에서는 가치가 없는 시험용입니다.</p>` : html`<span class="muted">블록에 담기면 계산됩니다</span>`}
+            ])}<p class="small muted">수수료는 박형원이 아니라 이더리움 자체 코인(${sym})으로 냅니다. 세폴리아에서는 가치가 없는 시험용입니다.</p>` : html`<span class="muted">블록에 담기면 계산됩니다</span>`}
           </div>
         </div>
 

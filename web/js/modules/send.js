@@ -14,10 +14,10 @@ export function resolveRecipient(q) {
   throw new Error(`'${q}' 라는 이름표가 없습니다. 이름이나 0x 주소를 입력하세요.`);
 }
 
-/** 내가 보유한 코인 목록: 서길원 + 보유 중인 친구 코인 */
+/** 내가 보유한 코인 목록: 박형원 + 보유 중인 친구 코인 */
 export async function myCoins(me) {
   const sgw = await getContract('Seogilwon');
-  const list = [{ address: chain.cfg.contracts.Seogilwon, symbol: 'sgw', name: '서길원', balance: me ? await sgw.balanceOf(me) : 0n, official: true }];
+  const list = [{ address: chain.cfg.contracts.Seogilwon, symbol: 'sgw', name: '박형원', balance: me ? await sgw.balanceOf(me) : 0n, official: true }];
   const f = await getContract('CoinFactory');
   for (const a of await f.allCoins()) {
     const c = await getContract('FriendCoin', a);
@@ -49,8 +49,8 @@ export default {
         <button class="btn btn-primary" id="send" ${me ? '' : 'disabled'}>보내기</button>
         ${me ? '' : html`<p class="small muted" style="margin-top:6px">먼저 <a href="#/home">MetaMask 를 연결</a>하세요.</p>`}
       </div>
-      ${explain('보내기를 누르면 무슨 일이?', html`<p>MetaMask 에서 “내 서길원을 이 사람에게 보내도 된다”에 <b>서명</b>만 하면 됩니다(USDC 와 같은 EIP-3009 방식). 수수료는 발행사가 내고 블록체인에 올립니다.
-        블록에 담기면 서길원 프로그램이 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</p>`)}
+      ${explain('보내기를 누르면 무슨 일이?', html`<p>MetaMask 에서 “내 박형원을 이 사람에게 보내도 된다”에 <b>서명</b>만 하면 됩니다(USDC 와 같은 EIP-3009 방식). 수수료는 발행사가 내고 블록체인에 올립니다.
+        블록에 담기면 박형원 프로그램이 장부의 두 칸(내 잔액 −, 상대 잔액 +)을 고칩니다. 은행 없이 이체가 끝납니다.</p>`)}
       <div class="card"><h2>최근 송금 (전체 공개)</h2><div id="recent" class="loading">불러오는 중…</div></div>
     `);
 

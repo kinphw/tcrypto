@@ -8,7 +8,7 @@ import { db, now } from './db.mjs';
 
 db.exec(`CREATE TABLE IF NOT EXISTS vaults (addr TEXT PRIMARY KEY, auth TEXT NOT NULL, vault TEXT NOT NULL, updated_at INTEGER)`);
 
-export const vaultMessage = (addr, vault, at) => `청라더헤븐 계정 보관\n주소: ${addr}\n암호문 지문: ${ethers.keccak256(ethers.toUtf8Bytes(vault))}\n시각: ${at}`;
+export const vaultMessage = (addr, vault, at) => `수원더헤븐 계정 보관\n주소: ${addr}\n암호문 지문: ${ethers.keccak256(ethers.toUtf8Bytes(vault))}\n시각: ${at}`;
 const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
 
 /** 맡기기·바꾸기: 지갑 주인의 서명이 있어야 한다 (남이 내 보관함을 바꿔치기하지 못하게) */

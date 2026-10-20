@@ -37,7 +37,7 @@ function anatomyCard(address, r, codeLen) {
         ${proofNodesView(p.accountProof, E().keccak256(address))}
         <details><summary class="small muted">노드가 준 원본 JSON (eth_getProof)</summary><pre class="code">${JSON.stringify(p, null, 2)}</pre></details>
       </details>`;
-    })()}    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>서길원 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 서길원과 무관'}). 서길원 잔액은 아래처럼 <b>서길원 프로그램(프록시)의 저장공간</b>에 적혀 있습니다.</p>` : ''}
+    })()}    ${isEoa ? html`<p class="small">이 지갑의 칸에는 <b>박형원 정보가 전혀 없습니다</b> (${noStorage ? 'storageHash = 빈 저장공간' : '저장공간이 있어도 박형원과 무관'}). 박형원 잔액은 아래처럼 <b>박형원 프로그램(프록시)의 저장공간</b>에 적혀 있습니다.</p>` : ''}
   </div>`;
 }
 
@@ -153,14 +153,14 @@ export default {
         <div class="sub hash">${address} ${copyBtn(address)}</div></div><span class="spacer"></span>
         <a class="btn" href="#/send/${encodeURIComponent(nick || address)}">이 사람에게 송금</a>${scan('address', address, '이더스캔 ↗')}</div>
       <div class="stats">
-        ${stat('서길원', won(krw), '서길원 프로그램 장부의 값')}
+        ${stat('박형원', won(krw), '박형원 프로그램 장부의 값')}
         ${stat('상점 · 만든 코인', `${shops.length} · ${coinsMade.length}`)}
       </div>
       <div id="anatomy" class="loading">장부 칸 읽는 중…</div>
-      <div id="tokencell" class="loading">서길원 칸 찾는 중…</div>
+      <div id="tokencell" class="loading">박형원 칸 찾는 중…</div>
       ${shops.length || coinsMade.length ? html`<div class="card"><div class="row">${shops.map(({ ev }) => html`<a class="pill" href="#/shop/s/${ev.args.shopId}">${ev.args.name}</a>`)}
         ${coinsMade.map(({ ev }) => html`<a class="pill" href="#/coins">${ev.args.symbol}</a>`)}</div></div>` : ''}
-      <div class="card"><div class="card-head"><h2>서길원 입출금 ${fmtNum(list.length)}건</h2>${scan('token', `${chain.cfg.contracts.Seogilwon}?a=${address}`, '이더스캔 토큰 내역 ↗')}</div>
+      <div class="card"><div class="card-head"><h2>박형원 입출금 ${fmtNum(list.length)}건</h2>${scan('token', `${chain.cfg.contracts.Seogilwon}?a=${address}`, '이더스캔 토큰 내역 ↗')}</div>
         <div id="hist"></div></div>
       ${explain('감독 관점: 가명이지만 완전 공개', html`<p>주소 하나만 알면 그 주소의 모든 입출금·상대방·시점을 누구나 볼 수 있습니다. 실명 정보는 없지만,
         거래소 입출금 등에서 주소와 실명이 한 번 연결되면 과거 내역 전체가 드러납니다.</p>`, { kind: 'sup' })}
@@ -172,7 +172,7 @@ export default {
     })().catch((e) => render($('#anatomy', view), html`<div class="card muted">계정 칸을 읽지 못했습니다: ${e.message}</div>`));
     (async () => {
       render($('#tokencell', view), await tokenCellCard(address, chain.cfg.contracts.Seogilwon, 'SeogilwonV1', 'sgw'));
-    })().catch((e) => render($('#tokencell', view), html`<div class="card muted">서길원 칸을 읽지 못했습니다: ${e.message}</div>`));
+    })().catch((e) => render($('#tokencell', view), html`<div class="card muted">박형원 칸을 읽지 못했습니다: ${e.message}</div>`));
 
     const rows = await Promise.all(list.slice(0, 200).map(async ({ ev, log }) => {
       const out = ev.args.from.toLowerCase() === address.toLowerCase();

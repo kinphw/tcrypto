@@ -2,7 +2,7 @@
 // 이용자가 MetaMask 에서 '서명'만 하면(수수료 0), 대납자가 그 서명을 블록체인에 올린다.
 const E = () => globalThis.ethers;
 
-export const FORWARDER_NAME = '청라더헤븐 대납 중계';
+export const FORWARDER_NAME = '수원더헤븐 대납 중계';
 
 export const TYPES = {
   ForwardRequest: [
@@ -32,7 +32,7 @@ export const TYPES = {
 };
 
 export const forwarderDomain = (chainId, address) => ({ name: FORWARDER_NAME, version: '1', chainId, verifyingContract: address });
-export const tokenDomain = (chainId, address, name = '서길원') => ({ name, version: '1', chainId, verifyingContract: address });
+export const tokenDomain = (chainId, address, name = '박형원') => ({ name, version: '1', chainId, verifyingContract: address });
 
 const now = () => Math.floor(Date.now() / 1000);
 export const randomNonce = () => E().hexlify(E().randomBytes(32));

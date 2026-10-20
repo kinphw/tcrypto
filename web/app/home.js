@@ -1,4 +1,4 @@
-// 홈: 통장(가상 원화)과 지갑(서길원), 충전·환매·보내기·받기, 출석, 친구 소식
+// 홈: 통장(가상 원화)과 지갑(박형원), 충전·환매·보내기·받기, 출석, 친구 소식
 import {
   bindDetails, techFold, app, api, account, html, render, $, $$, won, who, ago, sheet, busy, toast, submit, signCharge, signPay, amountPicker, bindAmount, onSettled, addrOfName, nameOf, track,
 } from './core.js';
@@ -6,15 +6,15 @@ import { inviteLink, shareInvite } from './me.js';
 
 const FEED_TEXT = {
   join: (f) => html`<b>${who(f.who)}</b> 님이 들어왔어요 👋`,
-  charge: (f) => html`<b>${who(f.who)}</b> 님이 ${won(f.amount)} sgw 충전`,
-  redeem: (f) => html`<b>${who(f.who)}</b> 님이 ${won(f.amount)} sgw 환매`,
-  send: (f) => html`<b>${who(f.who)}</b> → <b>${who(f.to)}</b> ${won(f.amount)} sgw 💸`,
-  buy: (f) => html`<b>${who(f.who)}</b> 님이 <b>${who(f.to)}</b> 님 가게에서 ${won(f.amount)} sgw 구매 🛍`,
-  product: (f) => html`새 상품 <b>${f.title}</b> ${won(f.amount)} sgw`,
+  charge: (f) => html`<b>${who(f.who)}</b> 님이 ${won(f.amount)} phw 충전`,
+  redeem: (f) => html`<b>${who(f.who)}</b> 님이 ${won(f.amount)} phw 환매`,
+  send: (f) => html`<b>${who(f.who)}</b> → <b>${who(f.to)}</b> ${won(f.amount)} phw 💸`,
+  buy: (f) => html`<b>${who(f.who)}</b> 님이 <b>${who(f.to)}</b> 님 가게에서 ${won(f.amount)} phw 구매 🛍`,
+  product: (f) => html`새 상품 <b>${f.title}</b> ${won(f.amount)} phw`,
   'bet-new': (f) => html`<a href="#/bets/${f.betId}"><b>${who(f.who)}</b> 님이 내기를 열었어요: ${f.title}</a>`,
   'bet-place': (f) => html`<a href="#/bets/${f.betId}"><b>${who(f.who)}</b> 님이 “${f.option}”에 ${won(f.amount)} 걸었어요</a>`,
   'bet-result': (f) => html`<a href="#/bets/${f.betId}">⚑ “${f.title}” 결과: <b>${f.option}</b></a>`,
-  'bet-win': (f) => html`<a href="#/bets/${f.betId}">🏆 <b>${who(f.who)}</b> 님이 내기에서 <b>${won(f.amount)}</b> sgw 땄어요</a>`,
+  'bet-win': (f) => html`<a href="#/bets/${f.betId}">🏆 <b>${who(f.who)}</b> 님이 내기에서 <b>${won(f.amount)}</b> phw 땄어요</a>`,
   'coupon-new': (f) => html`<a href="#/coupons/${f.couponId}"><b>${who(f.who)}</b> 님이 쿠폰을 만들었어요: ${f.title}</a>`,
   'coupon-buy': (f) => html`<a href="#/coupons/${f.couponId}"><b>${who(f.who)}</b> 님이 “${f.title}” 쿠폰을 샀어요</a>`,
   'coupon-gift': (f) => html`<b>${who(f.who)}</b> → <b>${who(f.to)}</b> “${f.title}” 쿠폰 선물 🎁`,
@@ -39,11 +39,11 @@ export default async function home(page, params, { refreshMe }) {
         <div class="acct bank">
           <div class="k">가상 은행 통장</div>
           <div class="v">${won(m.bank)}<small>원</small></div>
-          <div class="row"><button class="btn light" id="charge">충전 → sgw</button></div>
+          <div class="row"><button class="btn light" id="charge">충전 → phw</button></div>
         </div>
         <div class="acct wallet">
-          <div class="k">내 지갑 · 서길원</div>
-          <div class="v">${won(m.sgw)}<small>sgw</small></div>
+          <div class="k">내 지갑 · 박형원</div>
+          <div class="v">${won(m.sgw)}<small>phw</small></div>
           <div class="row"><button class="btn light" id="send">보내기</button><button class="btn light" id="recv">받기</button><button class="btn light ghost" id="redeem">환매</button></div>
         </div>
       </section>
@@ -56,7 +56,7 @@ export default async function home(page, params, { refreshMe }) {
         ${c.done ? html`<span class="stamp">✔</span>` : html`<button class="btn primary" id="checkin">출석</button>`}
       </section>
 
-      ${techFold([['내 지갑 주소', account.address, 'addr'], ['서길원 토큰 주소', app.cfg.contracts.Seogilwon, 'addr'], ['발행사(운영 지갑)', app.cfg.operator, 'addr'], ['네트워크', `${app.cfg.network.name} (체인 번호 ${app.cfg.network.chainId})`], ['통장 원화', `${won(m.bank)}원 — 블록체인 밖 가상 은행 장부`], ['지갑 서길원', `${won(m.sgw)} sgw — 블록체인 위 서길원 장부`]], '내 계정 블록체인 정보')}
+      ${techFold([['내 지갑 주소', account.address, 'addr'], ['박형원 토큰 주소', app.cfg.contracts.Seogilwon, 'addr'], ['발행사(운영 지갑)', app.cfg.operator, 'addr'], ['네트워크', `${app.cfg.network.name} (체인 번호 ${app.cfg.network.chainId})`], ['통장 원화', `${won(m.bank)}원 — 블록체인 밖 가상 은행 장부`], ['지갑 박형원', `${won(m.sgw)} phw — 블록체인 위 박형원 장부`]], '내 계정 블록체인 정보')}
 
       <section class="card invite">
         <div><b>친구 초대하면 둘 다 ${won(r.inviteReward)}원</b><div class="muted small">지금까지 ${m.invited}명 초대</div></div>
@@ -90,7 +90,7 @@ export default async function home(page, params, { refreshMe }) {
 }
 
 export function chargeSheet(m) {
-  sheet(html`<h2>충전하기</h2><p class="muted">통장 원화를 서길원으로 바꿔요. 1원 = 1 sgw. 발행사가 통장에서 돈을 받아 준비금으로 보관하고, 같은 금액의 서길원을 발행해 지갑에 넣어 줘요.</p>
+  sheet(html`<h2>충전하기</h2><p class="muted">통장 원화를 박형원으로 바꿔요. 1원 = 1 phw. 발행사가 통장에서 돈을 받아 준비금으로 보관하고, 같은 금액의 박형원을 발행해 지갑에 넣어 줘요.</p>
     <div class="balline">통장 <b>${won(m.bank)}원</b></div>
     ${amountPicker('amt', [10000, 30000, 50000, 'max'])}
     <button class="btn primary big" id="go">충전</button>`, {
@@ -108,9 +108,9 @@ export function chargeSheet(m) {
 }
 
 export function redeemSheet(m) {
-  sheet(html`<h2>환매하기</h2><p class="muted">서길원을 발행사에 돌려주면 그만큼 <b>소각</b>되고, 통장으로 원화가 돌아와요.</p>
-    <div class="balline">지갑 <b>${won(m.sgw)} sgw</b></div>
-    ${amountPicker('amt', [10000, 30000, 'max'], { unit: 'sgw' })}
+  sheet(html`<h2>환매하기</h2><p class="muted">박형원을 발행사에 돌려주면 그만큼 <b>소각</b>되고, 통장으로 원화가 돌아와요.</p>
+    <div class="balline">지갑 <b>${won(m.sgw)} phw</b></div>
+    ${amountPicker('amt', [10000, 30000, 'max'], { unit: 'phw' })}
     <button class="btn primary big" id="go">환매</button>`, {
     onMount: (b, close) => {
       const get = bindAmount(b, 'amt', m.sgw);
@@ -119,7 +119,7 @@ export function redeemSheet(m) {
         if (v > m.sgw) throw new Error('지갑 잔액보다 많아요');
         const obj = await signPay('redeem', app.cfg.operator, v);
         close();
-        await submit(obj, `${won(v)} sgw 환매`);
+        await submit(obj, `${won(v)} phw 환매`);
       }));
     },
   });
@@ -131,8 +131,8 @@ export function sendSheet(m, toName = '') {
     <label class="lbl">받는 사람</label>
     <input id="to" list="people" placeholder="닉네임" value="${toName}" autocomplete="off"><datalist id="people">${people.map((n) => html`<option value="${n}">`)}</datalist>
     <label class="lbl">금액</label>
-    ${amountPicker('amt', [1000, 5000, 10000], { unit: 'sgw' })}
-    <div class="balline">지갑 <b>${won(m.sgw)} sgw</b></div>
+    ${amountPicker('amt', [1000, 5000, 10000], { unit: 'phw' })}
+    <div class="balline">지갑 <b>${won(m.sgw)} phw</b></div>
     <button class="btn primary big" id="go">보내기</button>`, {
     onMount: (b, close) => {
       const get = bindAmount(b, 'amt', m.sgw);
@@ -145,7 +145,7 @@ export function sendSheet(m, toName = '') {
         if (v > m.sgw) throw new Error('지갑 잔액보다 많아요');
         const obj = await signPay('auth', globalThis.ethers.getAddress(to), v);
         close();
-        await submit(obj, `${nameOf(to) || '상대'}에게 ${won(v)} sgw`);
+        await submit(obj, `${nameOf(to) || '상대'}에게 ${won(v)} phw`);
       }));
     },
   });

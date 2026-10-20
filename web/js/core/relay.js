@@ -60,7 +60,7 @@ export async function signForward(target, method, args, label) {
   return { k: 'fwd', chainId: chain.cfg.network.chainId, label, method, req, sig };
 }
 
-/** 서길원 서명 송금 (EIP-3009 transferWithAuthorization) */
+/** 박형원 서명 송금 (EIP-3009 transferWithAuthorization) */
 export async function signTransfer(to, value, label) {
   const signer = requireWallet();
   const auth = buildAuthorization({ from: wallet.address, to, value });
@@ -173,7 +173,7 @@ export async function showRelayLink(obj, { to = '발행자(또는 ETH 가 있는
   // 요청함에 들어갔으면 팝업 없이 '처리 중 → 완료'만 보여 줌 (실제 앱처럼)
   if (posted) { watchUntilDone(obj); return link; }
 
-  const what = obj.k === 'notice' ? '발행자가 입금을 확인하면 그 금액만큼 서길원을 발행해 줍니다.'
+  const what = obj.k === 'notice' ? '발행자가 입금을 확인하면 그 금액만큼 박형원을 발행해 줍니다.'
     : obj.k === 'gas' ? '발행자가 보면 수수료용 ETH 를 보내 줍니다.'
     : '발행자(또는 ETH 가 있는 누구든)가 수수료를 내고 올려 주면 실행됩니다.';
   const close = openModal(html`
@@ -192,7 +192,7 @@ export async function showRelayLink(obj, { to = '발행자(또는 ETH 가 있는
     <p class="small muted" style="margin-top:10px">요청함과 링크에는 서명 내용(누가, 무엇을, 언제까지)과 서명값만 들어 있습니다. 누구나 볼 수 있지만 내용을 바꾸면 서명이 깨지므로, 올리는 사람이 할 수 있는 것은 올리느냐 마느냐뿐입니다.
       ${offchain ? '' : '유효기간은 7일, '}요청함 보관은 ${KEEP_HOURS}시간입니다.</p>`);
   document.getElementById('rlCopy').addEventListener('click', () => navigator.clipboard?.writeText(link).then(() => toast('복사했습니다. 카톡 등에 붙여넣어 보내세요.')).catch(() => prompt('복사하세요', link)));
-  document.getElementById('rlShare')?.addEventListener('click', () => navigator.share({ title: '청라더헤븐 대납 요청', text: obj.label, url: link }).catch(() => {}));
+  document.getElementById('rlShare')?.addEventListener('click', () => navigator.share({ title: '수원더헤븐 대납 요청', text: obj.label, url: link }).catch(() => {}));
   document.getElementById('rlInbox')?.addEventListener('click', () => close());
   return link;
 }

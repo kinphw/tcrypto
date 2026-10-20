@@ -1,7 +1,7 @@
-// 서길원(USDC 방식) 전체 기능 자동 점검 — 로컬 시험망(anvil 등)에서 실행.
+// 박형원(USDC 방식) 전체 기능 자동 점검 — 로컬 시험망(anvil 등)에서 실행.
 //   node tools-js/stable-test.mjs <rpcUrl> <발행자 개인키>
 // 친구 지갑(앨리스·밥·캐럴)은 새로 만든 지갑이라 ETH 가 0 이다. 모든 행동을 '서명 → 발행자가 대납'으로 처리해
-// "ETH 없이도 서길원을 쓸 수 있다"를 확인한다.
+// "ETH 없이도 박형원을 쓸 수 있다"를 확인한다.
 import { ethers } from 'ethers';
 import { deployAll, art } from './deploy-lib.mjs';
 
@@ -29,7 +29,7 @@ const factory = new ethers.Contract(C.CoinFactory, art('CoinFactory').abi, issue
 const proxy = new ethers.Contract(C.Seogilwon, art('SgwProxy').abi, issuer);
 
 console.log('\n■ 프록시 구조');
-ok(await token.name() === '서길원' && await token.symbol() === 'sgw' && await token.currency() === 'KRW', `토큰 정보: ${await token.name()} / ${await token.symbol()} / ${await token.currency()}`);
+ok(await token.name() === '박형원' && await token.symbol() === 'phw' && await token.currency() === 'KRW', `토큰 정보: ${await token.name()} / ${await token.symbol()} / ${await token.currency()}`);
 ok(await token.implementationVersion() === '1', '구현 판: 1');
 ok((await proxy.proxyImplementation()) === C.SeogilwonV1, '프록시가 가리키는 구현 = V1');
 const implSlot = await p.getStorage(C.Seogilwon, '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc');
@@ -135,5 +135,5 @@ ok(await tokenV2.balanceOf(alice.address) === balBefore, `잔액 그대로 (앨�
 await wait(tokenV2.clawback(alice.address, 500, 'V2 새 권한 시험'));
 ok(await tokenV2.balanceOf(alice.address) === balBefore - 500n, 'V2 에서 생긴 새 권한(clawback)으로 블랙리스트 없이 회수');
 
-console.log(fails ? `\n실패 ${fails}건 ✘` : '\n서길원 전 기능 점검 통과 ✅');
+console.log(fails ? `\n실패 ${fails}건 ✘` : '\n박형원 전 기능 점검 통과 ✅');
 process.exit(fails ? 1 : 0);

@@ -1,4 +1,4 @@
-// 청라더헤븐 운영 서버
+// 수원더헤븐 운영 서버
 //   - 화면: web/ (참여자 화면 /, 실험실 /lab/), 관리 페이지 /admin/
 //   - API : 서명 요청 접수·가입·출석·충전·환매, 조회(피드·순위·내기·쿠폰·상점), 관리
 //   - 뒤에서: 거래 대기열, 이벤트 색인, 내기 자동 정산, 준비금 대사
@@ -213,10 +213,10 @@ const server = http.createServer(async (req, res) => {
 startQueue();
 startIndexer();
 onIndexed(() => { try { settleTick(); } catch (e) { console.warn('[settle]', e.message); } });
-reconcile().then((r) => console.log(`[bank] 준비금 ${r.reserve.toLocaleString()}원 / 총발행 ${r.supply.toLocaleString()} sgw (소각 대기 ${r.pendingBurn}) → ${r.ok ? '일치' : '불일치!'}`)).catch((e) => console.warn('[bank] 대사 실패:', e.message));
+reconcile().then((r) => console.log(`[bank] 준비금 ${r.reserve.toLocaleString()}원 / 총발행 ${r.supply.toLocaleString()} phw (소각 대기 ${r.pendingBurn}) → ${r.ok ? '일치' : '불일치!'}`)).catch((e) => console.warn('[bank] 대사 실패:', e.message));
 setInterval(() => reconcile().catch(() => {}), 5 * 60e3);
 
 server.listen(PORT, HOST, () => {
-  console.log(`청라더헤븐 서버 http://${HOST}:${PORT}  (${cfg.network.name}, 설정 ${path.relative(ROOT, CONFIG_FILE)})`);
+  console.log(`수원더헤븐 서버 http://${HOST}:${PORT}  (${cfg.network.name}, 설정 ${path.relative(ROOT, CONFIG_FILE)})`);
   console.log(operator ? `운영 지갑 ${operator.address}` : '운영 지갑 없음 — node server/setup.mjs 로 만드세요');
 });

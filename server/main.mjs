@@ -18,6 +18,7 @@ import { settleTick } from './lib/settle.mjs';
 import { names, feed, ranking, allBets, betView, allCoupons, couponView, allProducts } from './lib/views.mjs';
 import * as admin from './lib/admin.mjs';
 import { saveVault, loginVault, hasVault } from './lib/vault.mjs';
+import { addressView, txView } from './lib/explorer.mjs';
 
 const ADMIN_DIR = path.join(ROOT, 'server', 'admin');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8' };
@@ -117,6 +118,8 @@ async function api(req, res, url, ip) {
     if (p.startsWith('/api/job/')) { const j = getJob(Number(p.slice(9))); return j ? send(res, 200, jobView(j)) : send(res, 404, { error: '없음' }); }
     if (p === '/api/feed') return send(res, 200, feed(Math.min(Number(q.get('limit')) || 40, 100), q.get('mine') ? viewer : null));
     if (p === '/api/rank') return send(res, 200, ranking());
+    if (p.startsWith('/api/x/addr/') && isAddr(p.slice(12))) return send(res, 200, await addressView(p.slice(12)));
+    if (/^\/api\/x\/tx\/0x[0-9a-fA-F]{64}$/.test(p)) return send(res, 200, await txView(p.slice(10)));
     if (p === '/api/bets') return send(res, 200, allBets().map((b) => betView(b, viewer)).reverse());
     if (/^\/api\/bets\/\d+$/.test(p)) {
       const b = allBets().find((x) => x.id === Number(p.split('/')[3]));

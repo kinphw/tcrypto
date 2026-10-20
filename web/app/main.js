@@ -8,6 +8,7 @@ import home from './home.js';
 import bets from './bets.js';
 import { shop, coupons } from './market.js';
 import me from './me.js';
+import explore from './explore.js';
 
 const TABS = [
   { id: '', title: '홈', icon: '⌂', view: home },
@@ -16,6 +17,8 @@ const TABS = [
   { id: 'shop', title: '상점', icon: '▤', view: shop },
   { id: 'me', title: '나', icon: '☺', view: me },
 ];
+// 메뉴에 없는 화면: 블록체인 보기 (#/x, #/x/addr/주소, #/x/tx/해시)
+const HIDDEN = [{ id: 'x', title: '블록체인 보기', view: explore }];
 const view = $('#view');
 
 // 초대 링크(?i=닉네임)로 들어왔으면 가입할 때까지 기억
@@ -47,7 +50,7 @@ async function route() {
   if (!account.address) { const st = localState(); return st === 'locked' ? lockScreen() : st === 'legacy' ? legacyScreen() : onboarding(); }
   if (!app.me?.user) return onboarding();
   const [id = '', ...params] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
-  const tab = TABS.find((t) => t.id === id) || TABS[0];
+  const tab = TABS.find((t) => t.id === id) || HIDDEN.find((t) => t.id === id) || TABS[0];
   document.body.classList.remove('bare');
   drawNav(tab.id);
   const page = document.createElement('div');

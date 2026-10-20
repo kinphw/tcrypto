@@ -1,7 +1,7 @@
-// 나: 초대 · 순위 · 통장 내역 · 내 활동 · 백업 · 실험실
+// 나: 초대 · 순위 · 통장 내역 · 내 요청 · 내 활동 · 계정 · 블록체인 보기
 import { app, api, account, html, render, $, $$, won, who, ago, sheet, toast, busy, revealPhrase, changePassword, lock, forgetWallet, connectMetaMask, hasMetaMask, short } from './core.js';
 import { feedItem, feedDetail } from './home.js';
-import { bindDetails, detailSheet, labAddr } from './core.js';
+import { bindDetails, detailSheet, xAddr } from './core.js';
 
 export const inviteLink = (name) => `${location.origin}/?i=${encodeURIComponent(name)}`;
 export function shareInvite(name) {
@@ -20,7 +20,7 @@ export default async function me(page) {
   render(page, html`
     <section class="profile card">
       <div class="avatar">${(m.user.name || '?').slice(0, 1)}</div>
-      <div><h1>${m.user.name}</h1><div class="muted small">${account.kind === 'metamask' ? 'MetaMask 지갑' : '이 브라우저 지갑'} · <a href="${labAddr(account.address)}" target="_blank">블록체인에서 보기</a></div><code class="small addr">${account.address}</code></div>
+      <div><h1>${m.user.name}</h1><div class="muted small">${account.kind === 'metamask' ? 'MetaMask 지갑' : '이 브라우저 지갑'} · <a href="${xAddr(account.address)}">블록체인에서 보기</a></div><code class="small addr">${account.address}</code></div>
     </section>
 
     <div class="cols2 me"><div class="col">
@@ -49,7 +49,7 @@ export default async function me(page) {
         <button class="btn" id="pwc">비밀번호 바꾸기</button>
         <button class="btn" id="backup">백업 문구 보기 (비밀번호를 잊었을 때 대비)</button>` : ''}
       ${account.kind === 'local' && hasMetaMask() ? html`<button class="btn" id="mm">MetaMask 로 바꾸기</button>` : ''}
-      <a class="btn" href="/lab/" target="_blank">실험실 · 블록체인 들여다보기</a>
+      <a class="btn" href="#/x">블록체인 보기 (주소 · 거래 찾아보기)</a>
       ${account.address ? html`<a class="btn ghost" href="${app.cfg.network.explorer ? `${app.cfg.network.explorer}/address/${account.address}` : '#'}" target="_blank" rel="noopener">이더스캔에서 내 기록 보기</a>` : ''}
       ${account.kind === 'local' ? html`<button class="btn ghost" id="lock">잠그기</button>` : ''}
       <button class="btn ghost danger" id="out">이 기기에서 로그아웃</button>

@@ -248,6 +248,7 @@ export function sheet(content, { onMount } = {}) {
   const closed = new Promise((r) => { resolve = r; });
   const close = (v) => { wrap.classList.remove('open'); document.body.classList.remove('noscroll'); setTimeout(() => wrap.remove(), 200); resolve(v); };
   wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  window.addEventListener('hashchange', () => close(), { once: true });
   $('.sheet-x', wrap).addEventListener('click', () => close());
   const body = $('.sheet-body', wrap);
   onMount?.(body, close);
@@ -280,9 +281,9 @@ export function bindAmount(root, id, max = null) {
 }
 
 // ───────── 자세히 보기: 평소엔 숨기고, 누르면 블록체인 원본 ─────────
-export const labTx = (h) => `/lab/#/tx/${h}`;
-export const labAddr = (a) => `/lab/#/address/${a}`;
-export const labBlock = (n) => `/lab/#/blocks/${n}`;
+// 앱 안의 '블록체인 보기' 화면 주소 (explore.js)
+export const xTx = (h) => `#/x/tx/${h}`;
+export const xAddr = (a) => `#/x/addr/${a}`;
 const scan = (kind, id) => (app.cfg.network.explorer ? `${app.cfg.network.explorer}/${kind}/${id}` : null);
 const contractName = { Seogilwon: '서길원 (토큰)', Members: '명부', Market: '상점가', Bets: '내기판', Coupons: '쿠폰 시장', CoinFactory: '코인공장', Forwarder: '대납 중계기' };
 
@@ -293,19 +294,19 @@ export function detailSheet({ title = '블록체인 기록', tx, block, contract
     <p class="muted small">${note || `${app.cfg.network.name} 블록체인에 공개된 기록이에요. 누구나 같은 내용을 볼 수 있고 지울 수 없어요.`}</p>
     <dl class="kv">
       ${tx ? html`<dt>거래 해시</dt><dd><code>${tx}</code></dd>` : ''}
-      ${block != null ? html`<dt>블록</dt><dd><a href="${labBlock(block)}" target="_blank">#${won(block)}</a></dd>` : ''}
-      ${cAddr ? html`<dt>컨트랙트</dt><dd>${contractName[contract] || contract}<br><a href="${labAddr(cAddr)}" target="_blank"><code>${cAddr}</code></a></dd>` : ''}
+      ${block != null ? html`<dt>블록</dt><dd><code>#${won(block)}</code></dd>` : ''}
+      ${cAddr ? html`<dt>컨트랙트</dt><dd>${contractName[contract] || contract}<br><a href="${xAddr(cAddr)}"><code>${cAddr}</code></a></dd>` : ''}
       ${event ? html`<dt>이벤트</dt><dd><code>${event}</code></dd>` : ''}
-      ${addrs.filter(([, a]) => a).map(([label, a]) => html`<dt>${label}</dt><dd>${nameOf(a) ? html`<b>${nameOf(a)}</b><br>` : ''}<a href="${labAddr(a)}" target="_blank"><code>${a}</code></a></dd>`)}
+      ${addrs.filter(([, a]) => a).map(([label, a]) => html`<dt>${label}</dt><dd>${nameOf(a) ? html`<b>${nameOf(a)}</b><br>` : ''}<a href="${xAddr(a)}"><code>${a}</code></a></dd>`)}
     </dl>
     ${args ? html`<details class="raw" open><summary>이벤트 원본 (JSON)</summary><pre>${JSON.stringify(args, null, 2)}</pre></details>` : ''}
-    ${tx ? html`<div class="row" style="margin-top:12px"><a class="btn primary" href="${labTx(tx)}" target="_blank">실험실에서 거래 해부</a>${scan('tx', tx) ? html`<a class="btn" href="${scan('tx', tx)}" target="_blank" rel="noopener">이더스캔</a>` : ''}</div>` : ''}`);
+    ${tx ? html`<div class="row" style="margin-top:12px"><a class="btn primary" href="${xTx(tx)}">거래 자세히 보기</a>${scan('tx', tx) ? html`<a class="btn" href="${scan('tx', tx)}" target="_blank" rel="noopener">이더스캔</a>` : ''}</div>` : ''}`);
 }
 
 /** 접힌 '블록체인 정보' 칸: 펴면 주소·번호·원본이 보인다. rows: [[이름표, 값, {addr|tx|json}], …] */
 export function techFold(rows, title = '블록체인 정보') {
-  const cell = ([, v, kind]) => kind === 'addr' ? html`${nameOf(v) ? html`<b>${nameOf(v)}</b><br>` : ''}<a href="${labAddr(v)}" target="_blank"><code>${v}</code></a>`
-    : kind === 'tx' ? html`<a href="${labTx(v)}" target="_blank"><code>${v}</code></a>`
+  const cell = ([, v, kind]) => kind === 'addr' ? html`${nameOf(v) ? html`<b>${nameOf(v)}</b><br>` : ''}<a href="${xAddr(v)}"><code>${v}</code></a>`
+    : kind === 'tx' ? html`<a href="${xTx(v)}"><code>${v}</code></a>`
     : kind === 'json' ? html`<pre>${JSON.stringify(v, null, 2)}</pre>` : html`<code>${v}</code>`;
   return html`<details class="raw tech"><summary>${title}</summary><dl class="kv">${rows.filter((r) => r[1] != null && r[1] !== '').map((r) => html`<dt>${r[0]}</dt><dd>${cell(r)}</dd>`)}</dl></details>`;
 }

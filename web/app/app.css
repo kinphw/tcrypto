@@ -246,3 +246,19 @@ code.addr { display: block; margin-top: 4px; color: var(--muted); }
 @media (min-width: 960px) {
   .page > .cols2:not(.me) { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
 }
+
+/* 블록체인 보기 */
+.xstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.xstats > div { background: var(--bg); border-radius: 12px; padding: 10px; }
+.xstats small { display: block; color: var(--muted); font-size: 12px; }
+.xstats b { font-size: 18px; word-break: break-all; }
+.xaddr code { color: var(--brand); }
+.relay { display: grid; gap: 6px; margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--brand-soft); }
+.relay small { display: block; color: var(--muted); font-size: 12px; }
+.relay .arrow { font-size: 12.5px; color: var(--brand); }
+.xlogs li { display: block; }
+.xlogs pre, .xlogs .kv { margin-top: 6px; }
+.feed li a.grow { flex: 1; min-width: 0; }
+
+/* 맨 아래 작은 글씨 */
+.credit { text-align: center; font-size: 11px; color: var(--muted); opacity: .7; padding: 8px 16px 4px; letter-spacing: .02em; }

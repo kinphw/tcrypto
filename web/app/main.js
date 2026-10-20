@@ -22,10 +22,20 @@ const TABS = [
 const HIDDEN = [{ id: 'x', title: '블록체인 보기', view: explore }];
 const view = $('#view');
 
-// 초대 링크(?i=닉네임)로 들어왔으면 가입할 때까지 기억
+// 초대 링크(?i=닉네임)로 들어왔으면 가입할 때까지 기억 — 단 3일만 (오래전에 연 링크가 엉뚱하게 남지 않게)
+const INVITE_DAYS = 3;
 const inv = new URLSearchParams(location.search).get('i');
-if (inv) { try { localStorage.setItem('tc.invite', inv); } catch {} history.replaceState(null, '', location.pathname + location.hash); }
-const invite = () => { try { return localStorage.getItem('tc.invite'); } catch { return null; } };
+if (inv) { try { localStorage.setItem('tc.invite', JSON.stringify({ name: inv, at: Date.now() })); } catch {} history.replaceState(null, '', location.pathname + location.hash); }
+const forgetInvite = () => { try { localStorage.removeItem('tc.invite'); } catch {} };
+const invite = () => {
+  try {
+    const raw = localStorage.getItem('tc.invite');
+    if (!raw) return null;
+    const v = raw.startsWith('{') ? JSON.parse(raw) : { name: raw, at: 0 }; // 예전 형식(이름만)은 오래된 것으로 본다
+    if (Date.now() - v.at > INVITE_DAYS * 86400e3) { forgetInvite(); return null; }
+    return v.name;
+  } catch { return null; }
+};
 
 export async function refreshMe() {
   app.me = account.address ? await api(`me/${account.address}`) : null;
@@ -83,14 +93,15 @@ function bare() { document.body.classList.add('bare'); render($('#tabs'), ''); }
 function onboarding() {
   bare();
   const r = app.cfg.rewards;
-  const by = invite();
+  let by = invite();
+  if (by && !Object.values(app.names).includes(by)) { forgetInvite(); by = null; } // 없는 닉네임의 초대는 무시
   const mm = account.kind === 'metamask'; // MetaMask 로 들어왔는데 아직 가입 안 한 사람: 닉네임만
   render(view, html`
     <div class="hero">
       <div class="hero-logo">원</div>
       <h1>수원더헤븐</h1>
       <p class="lead">친구들끼리 쓰는 가상 원화 코인 <b>박형원</b>.<br>내기하고, 쿠폰 주고받고, 가게도 열어 보세요.</p>
-      ${by ? html`<div class="invited">🎁 <b>${by}</b> 님이 초대했어요 · 가입하면 둘 다 <b>${won(r.inviteReward)}원</b></div>` : ''}
+      ${by ? html`<div class="invited">🎁 <b>${by}</b> 님이 초대했어요 · 가입하면 둘 다 <b>${won(r.inviteReward)}원</b><button class="invite-x" id="noInvite">초대받지 않았어요 ✕</button></div>` : ''}
       <div class="card">
         <label class="lbl" for="nick">닉네임</label>
         <input id="nick" maxlength="10" placeholder="친구들에게 보일 이름" autocomplete="username">
@@ -132,6 +143,7 @@ function onboarding() {
   $('#login')?.addEventListener('click', loginSheet);
   $('#restore')?.addEventListener('click', restoreSheet);
   $('#mm')?.addEventListener('click', busy($('#mm'), async () => { await connectMetaMask(); await afterWallet(); }));
+  $('#noInvite')?.addEventListener('click', () => { forgetInvite(); onboarding(); });
 }
 
 function loginSheet() {
@@ -212,7 +224,7 @@ function legacyScreen() {
 async function join(name, pw) {
   const obj = await signCall('Members', 'join', [name], { gas: 300000, label: '가입' });
   const r = await api('join', { obj, invite: invite() });
-  try { localStorage.removeItem('tc.invite'); } catch {}
+  forgetInvite();
   rememberName(name);
   if (pw) await uploadVault(name, pw).catch((e) => toast(`로그인 정보 저장 실패: ${errMsg(e)} — 나 → 비밀번호 바꾸기로 다시 저장하세요`, { kind: 'bad' }));
   await refreshMe();

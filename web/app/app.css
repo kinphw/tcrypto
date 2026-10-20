@@ -287,3 +287,5 @@ code.addr { display: block; margin-top: 4px; color: var(--muted); }
 .hops { grid-template-columns: minmax(0, 1fr); }
 .hop, .hop .step, .raw { min-width: 0; max-width: 100%; }
 .raw pre { max-width: 100%; white-space: pre; }
+
+.invite-x { display: block; margin: 6px auto 0; background: none; border: 0; color: inherit; opacity: .7; font: inherit; font-size: 12.5px; text-decoration: underline; cursor: pointer; }

@@ -14,7 +14,7 @@ export function shareInvite(name) {
 const BANK_KIND = { signup: '가입 축하금', checkin: '출석', streak: '연속 출석 보너스', invite: '초대받은 보상', inviter: '초대 보상', grant: '이벤트', charge: '충전 (→ 박형원)', 'charge-refund': '충전 되돌림', redeem: '환매 (박형원 →)' };
 
 export default async function me(page) {
-  const [m, rank, mine, adm] = await Promise.all([api(`me/${account.address}`), api('rank'), api(`feed?mine=1&me=${account.address}&limit=60`), api('admin/whoami').catch(() => ({}))]);
+  const [m, rank, mine, adm] = await Promise.all([api(`me/${account.address}`), api('rank'), api(`feed?mine=1&me=${account.address}&limit=60`), api(`admin/whoami?addr=${account.address}`).catch(() => ({}))]);
   const meA = account.address.toLowerCase();
   const rankList = (rows, val) => html`<ol class="rank">${rows.map((r, i) => html`<li class="${r.addr === meA ? 'me' : ''}"><span class="n">${i + 1}</span><b>${who(r.addr)}</b><span class="v">${val(r)}</span></li>`)}</ol>`;
   render(page, html`
@@ -46,7 +46,9 @@ export default async function me(page) {
 
     <section class="card"><h2>내 활동</h2>${mine.length ? html`<ul class="feed">${mine.map(feedItem)}</ul>` : html`<p class="muted">아직 없어요</p>`}</section>
 
-    ${adm.admin ? html`<section class="card"><h2>관리자</h2><p class="muted small">이 브라우저는 관리자로 로그인돼 있어요. 다른 사람에게는 안 보여요.</p><a class="btn primary" href="/admin/" target="_blank">관리 페이지 열기</a></section>` : ''}
+    ${adm.wallet ? html`<section class="card"><h2>관리자</h2><p class="muted small">이 계정은 관리자 계정이에요. 누르면 이 지갑으로 서명해서 비밀번호 없이 관리 페이지에 들어가요. 다른 사람에게는 안 보여요.</p><button class="btn primary" id="admGo">관리 페이지 열기</button></section>`
+      : adm.admin ? html`<section class="card"><h2>관리자</h2><p class="muted small">이 브라우저는 관리자 비밀번호로 로그인돼 있어요. 이 계정을 관리자 계정으로 등록하면, 다음부터는 앱에 로그인하는 것만으로 관리 페이지에 들어갈 수 있어요.</p>
+        <button class="btn primary" id="admReg">이 계정을 관리자 계정으로 등록</button><a class="btn" href="/admin/">관리 페이지 열기</a></section>` : ''}
     <section class="card"><h2>계정</h2>
       ${account.kind === 'local' ? html`<p class="muted small">${m.vault ? '✔ 다른 기기에서 닉네임 + 비밀번호로 로그인할 수 있어요' : '⚠ 아직 서버에 로그인 정보가 없어요. 비밀번호 바꾸기를 한 번 하면 저장돼요'}</p>
         <button class="btn" id="pwc">비밀번호 바꾸기</button>
@@ -91,6 +93,21 @@ export default async function me(page) {
     })),
   }));
   $('#lock', page)?.addEventListener('click', () => { lock(); location.href = '/'; });
+  $('#admGo', page)?.addEventListener('click', busy($('#admGo', page), async () => {
+    if (!adm.admin) {
+      // 서버가 낸 1회용 문장에 내 지갑으로 서명 → 서버가 서명자를 확인하고 관리자 세션을 연다
+      const { message } = await api(`admin/challenge?addr=${account.address}`);
+      const sig = await account.signer.signMessage(message);
+      await api('admin/wallet-login', { addr: account.address, message, sig });
+    }
+    location.href = '/admin/';
+  }));
+  $('#admReg', page)?.addEventListener('click', busy($('#admReg', page), async () => {
+    const r = await fetch('/api/admin/wallets', { method: 'POST', headers: { 'content-type': 'application/json', 'x-tc': '1' }, body: JSON.stringify({ addr: account.address, on: true }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '등록하지 못했어요');
+    toast('관리자 계정으로 등록했어요. 다음부터는 앱 로그인만으로 들어가요', { kind: 'ok' });
+    location.reload();
+  }));
   $('#out', page).addEventListener('click', () => {
     const local = account.kind === 'local';
     if (!confirm(local ? '이 기기에서 계정을 지워요. 닉네임 + 비밀번호로 다시 로그인할 수 있어요 (비밀번호를 잊었다면 백업 문구가 있어야 해요). 로그아웃할까요?' : '로그아웃할까요?')) return;

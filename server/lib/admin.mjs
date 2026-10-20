@@ -1,8 +1,9 @@
 // 관리 페이지 API: 비밀번호 로그인(scrypt) → 세션 쿠키. 로그인 실패가 이어지면 그 IP 를 잠시 막는다.
 import crypto from 'node:crypto';
-import { db, now, settings, setSettings } from './db.mjs';
+import { db, now, settings, setSettings, kvGet, kvSet } from './db.mjs';
+import { ethers } from 'ethers';
 import { readSecret } from './config.mjs';
-import { provider, contracts, operator } from './chain.mjs';
+import { cfg, provider, contracts, operator } from './chain.mjs';
 import { enqueue, queueStats, jobView, kick } from './queue.mjs';
 import { balance, RESERVE, TREASURY, lastReconcile, reconcile } from './bank.mjs';
 import { reward, rewardedToday, getUser, userByName } from './rewards.mjs';
@@ -35,18 +36,73 @@ export function isAdmin(req) {
   return true;
 }
 
-export function login(req, res, body, ip) {
+function blockedIp(ip) {
   const f = fails.get(ip);
   if (f && f.until > Date.now()) throw Object.assign(new Error('로그인 시도가 너무 많습니다. 15분 뒤 다시 해 주세요'), { status: 429 });
-  if (!checkPassword(body.password || '')) {
-    const n = (f?.n || 0) + 1;
-    fails.set(ip, { n: n >= 5 ? 0 : n, until: n >= 5 ? Date.now() + 15 * 60e3 : 0 });
-    throw Object.assign(new Error('비밀번호가 맞지 않습니다'), { status: 401 });
-  }
-  fails.delete(ip);
+}
+function missIp(ip) {
+  const f = fails.get(ip);
+  const n = (f?.n || 0) + 1;
+  fails.set(ip, { n: n >= 5 ? 0 : n, until: n >= 5 ? Date.now() + 15 * 60e3 : 0 });
+}
+function openSession(res) {
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, Date.now() + SESSION_HOURS * 3600e3);
   res.setHeader('Set-Cookie', `tca=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_HOURS * 3600}`);
+}
+
+export function login(req, res, body, ip) {
+  blockedIp(ip);
+  if (!checkPassword(body.password || '')) {
+    missIp(ip);
+    throw Object.assign(new Error('비밀번호가 맞지 않습니다'), { status: 401 });
+  }
+  fails.delete(ip);
+  openSession(res);
+  return { ok: true };
+}
+
+// ───── 관리자 지갑: 앱에 평소처럼 로그인한 계정으로 관리 페이지 들어가기 ─────
+// 등록된 지갑 주소가 서버가 낸 1회용 문장에 서명하면 관리자 세션을 연다 (비밀번호 로그인은 비상용으로 그대로).
+// 발행자 MetaMask(app-config 의 issuer)는 처음부터 관리자 지갑이다.
+export function adminWallets() {
+  const list = JSON.parse(kvGet('admin.wallets', '[]'));
+  if (cfg.issuer && !list.includes(cfg.issuer.toLowerCase())) list.unshift(cfg.issuer.toLowerCase());
+  return list;
+}
+export const isAdminWallet = (a) => !!a && adminWallets().includes(String(a).toLowerCase());
+export function setAdminWallet(addr, on) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr || '')) throw new Error('주소가 아닙니다');
+  const a = addr.toLowerCase();
+  if (!on && cfg.issuer && a === cfg.issuer.toLowerCase()) throw new Error('발행자 지갑은 뺄 수 없습니다');
+  const list = JSON.parse(kvGet('admin.wallets', '[]')).filter((x) => x !== a);
+  if (on) list.push(a);
+  kvSet('admin.wallets', JSON.stringify(list));
+  return { wallets: adminWallets() };
+}
+
+const challenges = new Map(); // 1회용 문장 → 만료 시각
+export function challenge(addr) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr || '')) throw new Error('주소가 아닙니다');
+  const message = `수원더헤븐 관리자 로그인\n주소: ${ethers.getAddress(addr)}\n시각: ${now()}\n1회용: ${crypto.randomBytes(12).toString('hex')}`;
+  challenges.set(message, Date.now() + 5 * 60e3);
+  for (const [m, t] of challenges) if (t < Date.now()) challenges.delete(m);
+  return { message };
+}
+export function walletLogin(req, res, { addr, message, sig }, ip) {
+  blockedIp(ip);
+  const exp = challenges.get(message);
+  challenges.delete(message); // 한 번 쓰면 끝
+  let signer = null;
+  try { signer = ethers.verifyMessage(String(message || ''), String(sig || '')); } catch {}
+  const ok = exp && exp > Date.now() && signer && signer.toLowerCase() === String(addr || '').toLowerCase()
+    && String(message).includes(ethers.getAddress(addr)) && isAdminWallet(addr);
+  if (!ok) {
+    missIp(ip);
+    throw Object.assign(new Error('관리자 지갑 서명이 아니에요'), { status: 401 });
+  }
+  fails.delete(ip);
+  openSession(res);
   return { ok: true };
 }
 export function logout(req, res) {

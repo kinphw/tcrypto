@@ -133,11 +133,22 @@ const TABS = {
       ['maxChargePerDay', '1인 하루 충전 한도 (원)'], ['settleGraceMinutes', '내기 결과 뒤 자동 정산까지 (분)'],
     ];
     v.innerHTML = `<div class="card"><h2>운영 값</h2>${F.map(([k, l]) => `<div class="row"><label style="flex:1">${l}</label><input data-k="${k}" type="number" min="0" value="${s[k]}" style="width:160px"></div>`).join('')}
-      <div class="row"><button id="save" class="primary">저장</button></div></div>`;
+      <div class="row"><button id="save" class="primary">저장</button></div></div>
+      <div class="card"><h2>관리자 지갑 <span class="muted" style="font-weight:400">이 지갑으로 앱에 로그인하면 '나 → 관리 페이지 열기'로 비밀번호 없이 들어와요</span></h2><div id="wl" class="muted">불러오는 중…</div>
+        <div class="row"><input id="wAdd" placeholder="닉네임 또는 주소" style="flex:1"><button id="wBtn">추가</button></div></div>`;
     $('#save', v).addEventListener('click', () => {
       const patch = {};
       v.querySelectorAll('[data-k]').forEach((i) => { patch[i.dataset.k] = i.value; });
       act('settings', patch, '저장했습니다');
+    });
+    const w = await api('wallets');
+    $('#wl', v).innerHTML = w.wallets.map((a, i) => `<div class="row"><span style="flex:1">${esc(w.names[a] || (i === 0 ? '발행자 MetaMask' : ''))} <span class="mono">${a}</span></span>${i === 0 ? '<span class="muted">기본</span>' : `<button class="danger" data-wrm="${a}">빼기</button>`}</div>`).join('');
+    v.querySelectorAll('[data-wrm]').forEach((b) => b.addEventListener('click', () => confirm('이 지갑의 관리자 입장을 뺄까요?') && act('wallets', { addr: b.dataset.wrm, on: false }, '뺐습니다')));
+    $('#wBtn', v).addEventListener('click', () => {
+      const q = $('#wAdd', v).value.trim();
+      const addr = /^0x[0-9a-fA-F]{40}$/.test(q) ? q : Object.entries(w.names).find(([, n]) => n === q)?.[0];
+      if (!addr) return toast('그런 닉네임이 없어요');
+      act('wallets', { addr, on: true }, '추가했습니다');
     });
   },
 };
